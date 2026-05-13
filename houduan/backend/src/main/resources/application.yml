@@ -1,0 +1,7 @@
+spring:
+    data:
+        mongodb:
+            # 如果是本地数据库：
+            uri: mongodb://localhost:27017/student_db
+            # 如果有账号密码：
+            # uri: mongodb://username:password@localhost:27017/xuexitong_db
