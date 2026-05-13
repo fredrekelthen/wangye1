@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+    <title><%= htmlWebpackPlugin.options.title %></title>
+  </head>
+  <body>
+    <noscript>
+      <strong>We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please enable it to continue.</strong>
+    </noscript>
+    <div id="app"></div>
+    <!-- built files will be auto injected -->
+    
+    <!-- Dify Chatbot: floating bubble that opens chat assistant -->
+    <script>
+      window.difyChatbotConfig = {
+        token: '7iUK3FUpEpn1fBU0',
+        baseUrl: 'http://43.140.245.165:8993',
+        systemVariables: {
+          // user_id: 'YOU CAN DEFINE USER ID HERE',
+        },
+        // 添加开场白
+        greetings: '您好！我是电磁场课程问答小助手，很高兴为您服务！请问有什么可以帮助您的吗？'
+      }
+    </script>
+    <script src="http://43.140.245.165:8993/embed.min.js" id="7iUK3FUpEpn1fBU0" defer></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        // 定义功能映射表
+        const functionMapping = {
+          '课程学习': { path: '/course', description: '跳转到课程学习页面' },
+          '学习内容': { path: '/course?tab=content', description: '跳转到课程学习内容' },
+          '讨论区': { path: '/course?tab=discuss', description: '跳转到课程讨论区' },
+          '公告': { path: '/course?tab=notice', description: '跳转到课程公告' },
+          '分组': { path: '/course?tab=group', description: '跳转到课程分组' },
+          '成绩单': { path: '/course?tab=grade', description: '跳转到课程成绩单' },
+          '首页': { path: '/', description: '返回首页' },
+          '登录': { description: '打开登录弹窗', action: 'openLogin' },
+          '注册': { description: '打开注册弹窗', action: 'openRegister' },
+        };
+
+        // 处理功能跳转
+        function handleFunctionClick(functionName) {
+          const func = functionMapping[functionName];
+          if (!func) return;
+
+          if (func.action === 'openLogin' || func.action === 'openRegister') {
+            // 触发自定义事件打开登录/注册弹窗
+            const event = new CustomEvent('openAuthModal', { detail: { mode: func.action === 'openLogin' ? 'login' : 'register' } });
+            window.dispatchEvent(event);
+          } else if (func.path) {
+            // 跳转到指定路径
+            window.location.href = window.location.origin + func.path;
+          }
+        }
+
+        // 监听消息并处理功能链接
+        function processChatMessages() {
+          const chatWindow = document.getElementById('dify-chatbot-bubble-window');
+          if (!chatWindow) return;
+
+          // 使用MutationObserver监听消息变化
+          const messageObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+              if (mutation.type === 'childList') {
+                const addedNodes = mutation.addedNodes;
+                addedNodes.forEach(function(node) {
+                  if (node.nodeType === 1) { // 元素节点
+                    // 查找消息容器
+                    const messageElements = node.querySelectorAll ? node.querySelectorAll('[class*="message"], [class*="bubble"]') : [];
+                    messageElements.forEach(function(msgElement) {
+                      processMessageElement(msgElement);
+                    });
+                    
+                    // 如果node本身是消息元素
+                    if (node.classList && (node.classList.toString().includes('message') || node.classList.toString().includes('bubble'))) {
+                      processMessageElement(node);
+                    }
+                  }
+                });
+              }
+            });
+          });
+
+          messageObserver.observe(chatWindow, {
+            childList: true,
+            subtree: true
+          });
+        }
+
+        // 处理单个消息元素
+        function processMessageElement(msgElement) {
+          // 只处理AI的消息（通常包含"assistant"或"bot"等类名）
+          const classString = msgElement.classList ? msgElement.classList.toString() : '';
+          if (classString.includes('user') || classString.includes('me') || classString.includes('you')) {
+            return; // 跳过用户消息
+          }
+
+          const messageContent = msgElement.textContent || msgElement.innerText;
+          if (!messageContent) return;
+
+          // 检查是否已处理过
+          if (msgElement.dataset.processed) return;
+          msgElement.dataset.processed = 'true';
+
+              // 识别功能关键词并添加链接
+              Object.keys(functionMapping).forEach(function(functionName) {
+                if (messageContent.includes(functionName)) {
+                  // 查找包含功能关键词的文本节点
+                  function wrapFunctionKeywords(element) {
+                    if (element.nodeType === 3) { // 文本节点
+                      const text = element.textContent;
+                      if (text.includes(functionName)) {
+                        const newHTML = text.replace(functionName,
+                          '<a href="javascript:void(0)" class="function-link" data-function="' + functionName + '" ' +
+                          'style="color: #007BFF; text-decoration: underline; cursor: pointer; font-weight: 600;">' +
+                          functionName + '</a>'
+                        );
+                        const wrapper = document.createElement('span');
+                        wrapper.innerHTML = newHTML;
+                        element.parentNode.insertBefore(wrapper, element);
+                        element.parentNode.removeChild(element);
+                      }
+                    } else if (element.childNodes) {
+                      // 递归处理子节点
+                      Array.from(element.childNodes).forEach(function(child) {
+                        if (child.nodeType === 1 && child.tagName !== 'A') { // 跳过已有的链接
+                          wrapFunctionKeywords(child);
+                        }
+                      });
+                    }
+                  }
+
+              wrapFunctionKeywords(msgElement);
+
+              // 添加点击事件
+              const functionLinks = msgElement.querySelectorAll('.function-link');
+              functionLinks.forEach(function(link) {
+                link.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  const funcName = this.getAttribute('data-function');
+                  handleFunctionClick(funcName);
+                });
+              });
+            }
+          });
+        }
+
+        // 延迟处理消息，等待聊天窗口完全加载
+        setTimeout(function() {
+          processChatMessages();
+          
+          // 定期检查并处理新消息
+          setInterval(function() {
+            const chatWindow = document.getElementById('dify-chatbot-bubble-window');
+            if (chatWindow) {
+              const messages = chatWindow.querySelectorAll('[class*="message"], [class*="bubble"]');
+              messages.forEach(function(msg) {
+                processMessageElement(msg);
+              });
+            }
+          }, 1000);
+        }, 2000);
+
+        // 等待聊天窗口加载
+        const observer = new MutationObserver(function(mutations) {
+          const chatWindow = document.getElementById('dify-chatbot-bubble-window');
+          const chatButton = document.getElementById('dify-chatbot-bubble-button');
+          
+          // 处理聊天窗口 - 设置为可调整大小
+          if (chatWindow && !chatWindow.dataset.fixed) {
+            chatWindow.dataset.fixed = 'true';
+            
+            // 设置聊天窗口初始位置和大小
+            const setInitialChatWindow = function() {
+              const windowWidth = window.innerWidth;
+              const windowHeight = window.innerHeight;
+              const chatWidth = Math.min(windowWidth * 0.35, 450); // 初始宽度，最大450px
+              const chatHeight = Math.min(windowHeight * 0.7, 600); // 初始高度，最大600px
+              
+              chatWindow.style.width = chatWidth + 'px';
+              chatWindow.style.height = chatHeight + 'px';
+              chatWindow.style.position = 'fixed';
+              chatWindow.style.right = '20px';
+              chatWindow.style.top = (windowHeight * 0.15) + 'px'; // 距离顶部15%
+              chatWindow.style.left = 'auto';
+              chatWindow.style.bottom = 'auto';
+              chatWindow.style.zIndex = '9999';
+              chatWindow.style.minWidth = '300px'; // 最小宽度
+              chatWindow.style.minHeight = '400px'; // 最小高度
+              chatWindow.style.resize = 'both'; // 允许调整大小
+              chatWindow.style.overflow = 'auto'; // 确保内容可滚动
+            };
+            
+            // 创建调整大小的手柄
+            const createResizeHandle = function() {
+              const resizeHandle = document.createElement('div');
+              resizeHandle.style.position = 'absolute';
+              resizeHandle.style.bottom = '0';
+              resizeHandle.style.right = '0';
+              resizeHandle.style.width = '15px';
+              resizeHandle.style.height = '15px';
+              resizeHandle.style.cursor = 'se-resize';
+              resizeHandle.style.zIndex = '10000';
+              resizeHandle.style.background = 'linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.3) 50%)';
+              
+              // 添加调整大小的功能
+              let startX, startY, startWidth, startHeight;
+              
+              resizeHandle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = parseInt(document.defaultView.getComputedStyle(chatWindow).width, 10);
+                startHeight = parseInt(document.defaultView.getComputedStyle(chatWindow).height, 10);
+                
+                function doResize(e) {
+                  const newWidth = startWidth + e.clientX - startX;
+                  const newHeight = startHeight + e.clientY - startY;
+                  
+                  // 确保窗口不小于最小尺寸
+                  chatWindow.style.width = Math.max(newWidth, 300) + 'px';
+                  chatWindow.style.height = Math.max(newHeight, 400) + 'px';
+                }
+                
+                function stopResize() {
+                  document.removeEventListener('mousemove', doResize);
+                  document.removeEventListener('mouseup', stopResize);
+                }
+                
+                document.addEventListener('mousemove', doResize);
+                document.addEventListener('mouseup', stopResize);
+              });
+              
+              chatWindow.appendChild(resizeHandle);
+              return resizeHandle;
+            };
+            
+            // 创建拖动功能
+            const createDragFunctionality = function() {
+              let isDragging = false;
+              let currentX;
+              let currentY;
+              let initialX;
+              let initialY;
+              let xOffset = 0;
+              let yOffset = 0;
+              
+              // 找到聊天窗口的标题栏或顶部区域
+              const chatHeader = chatWindow.querySelector('div[class*="header"], div[class*="title"], div:first-child');
+              
+              if (chatHeader) {
+                chatHeader.style.cursor = 'move';
+                
+                chatHeader.addEventListener('mousedown', dragStart);
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', dragEnd);
+              }
+              
+              function dragStart(e) {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+                
+                if (e.target === chatHeader || chatHeader.contains(e.target)) {
+                  isDragging = true;
+                }
+              }
+              
+              function drag(e) {
+                if (isDragging) {
+                  e.preventDefault();
+                  currentX = e.clientX - initialX;
+                  currentY = e.clientY - initialY;
+                  
+                  xOffset = currentX;
+                  yOffset = currentY;
+                  
+                  // 限制窗口不拖出屏幕
+                  const windowWidth = window.innerWidth;
+                  const windowHeight = window.innerHeight;
+                  const chatWidth = parseInt(chatWindow.style.width, 10);
+                  const chatHeight = parseInt(chatWindow.style.height, 10);
+                  
+                  let newLeft = windowWidth - chatWidth - currentX;
+                  let newTop = currentY;
+                  
+                  // 确保窗口不会完全拖出屏幕
+                  newLeft = Math.max(0, Math.min(newLeft, windowWidth - 100));
+                  newTop = Math.max(0, Math.min(newTop, windowHeight - 100));
+                  
+                  chatWindow.style.right = 'auto';
+                  chatWindow.style.left = newLeft + 'px';
+                  chatWindow.style.top = newTop + 'px';
+                }
+              }
+              
+              function dragEnd() {
+                initialX = currentX;
+                initialY = currentY;
+                isDragging = false;
+              }
+            };
+            
+            // 初始设置大小和位置
+            setInitialChatWindow();
+            
+            // 添加调整大小和拖动功能
+            setTimeout(function() {
+              createResizeHandle();
+              createDragFunctionality();
+            }, 500);
+            
+            // 监听窗口大小变化
+            window.addEventListener('resize', function() {
+              const windowWidth = window.innerWidth;
+              const windowHeight = window.innerHeight;
+              const chatWidth = parseInt(chatWindow.style.width, 10);
+              const chatHeight = parseInt(chatWindow.style.height, 10);
+              const chatRight = parseInt(chatWindow.style.right, 10) || 0;
+              const chatTop = parseInt(chatWindow.style.top, 10) || 0;
+              const chatLeft = parseInt(chatWindow.style.left, 10) || 0;
+              
+              // 确保窗口在调整浏览器窗口大小时不会超出屏幕
+              if (chatRight > 0) {
+                chatWindow.style.right = Math.min(chatRight, windowWidth - 100) + 'px';
+              }
+              if (chatLeft > 0) {
+                chatWindow.style.left = Math.min(chatLeft, windowWidth - chatWidth - 20) + 'px';
+              }
+              if (chatTop > 0) {
+                chatWindow.style.top = Math.min(chatTop, windowHeight - chatHeight - 20) + 'px';
+              }
+            });
+          }
+          
+          // 处理聊天气泡按钮 - 固定在右下角
+          if (chatButton && !chatButton.dataset.fixed) {
+            chatButton.dataset.fixed = 'true';
+            
+            // 设置聊天按钮位置
+            const setButtonPosition = function() {
+              chatButton.style.position = 'fixed';
+              chatButton.style.right = '20px';
+              chatButton.style.bottom = '20px';
+              chatButton.style.left = 'auto';
+              chatButton.style.top = 'auto';
+              chatButton.style.zIndex = '9999';
+            };
+            
+            // 初始设置位置
+            setButtonPosition();
+            
+            // 监听窗口大小变化，重新设置按钮位置
+            window.addEventListener('resize', setButtonPosition);
+          }
+        });
+        
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['id']
+        });
+      });
+    </script>
+    <style>
+      #dify-chatbot-bubble-button {
+        background-color: #00B894 !important;
+        z-index: 9999 !important;
+      }
+      #dify-chatbot-bubble-window {
+        overflow: auto !important;
+        z-index: 9999 !important;
+        position: fixed !important;
+        border-radius: 8px !important;
+        box-shadow: 0 4px 16px rgba(0, 184, 148, 0.2) !important;
+      }
+      /* 添加调整大小时的过渡效果 */
+      #dify-chatbot-bubble-window * {
+        transition: none !important;
+      }
+    </style>
+  </body>
+</html>

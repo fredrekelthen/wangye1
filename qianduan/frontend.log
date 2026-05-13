@@ -1,0 +1,345 @@
+
+> sizhen@0.1.0 serve
+> vue-cli-service serve --port=3000
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ INFO  Starting development server...
+[3%] setup (watch run)
+[2K[1A[2K[G[3%] setup (watch run vue-loader-plugin)
+[2K[1A[2K[G[3%] setup (watch run ESLintWebpackPlugin_1)
+[2K[1A[2K[G[3%] setup (watch run ForkTsCheckerWebpackPlugin)
+[2K[1A[2K[G[3%] setup (watch run webpack-dev-middleware)
+[2K[1A[2K[G[3%] setup (watch run)
+[2K[1A[2K[G[4%] setup (normal module factory)
+[2K[1A[2K[G[4%] setup (normal module factory CaseSensitivePathsPlugin)
+[2K[1A[2K[G[4%] setup (normal module factory)
+[2K[1A[2K[G[5%] setup (context module factory)
+[2K[1A[2K[G[6%] setup (before compile)
+[2K[1A[2K[G[6%] setup (before compile ProgressPlugin)
+[2K[1A[2K[G[6%] setup (before compile)
+[2K[1A[2K[G[7%] setup (compile)
+[2K[1A[2K[G[7%] setup (compile ExternalsPlugin)
+[2K[1A[2K[G[7%] setup (compile)
+[2K[1A[2K[G[8%] setup (compilation)
+[2K[1A[2K[G[8%] setup (compilation HtmlWebpackPlugin)
+[2K[1A[2K[G[8%] setup (compilation CopyPlugin)
+[2K[1A[2K[G[8%] setup (compilation ArrayPushCallbackChunkFormatPlugin)
+[2K[1A[2K[G[8%] setup (compilation JsonpChunkLoadingPlugin)
+[2K[1A[2K[G[8%] setup (compilation StartupChunkDependenciesPlugin)
+[2K[1A[2K[G[8%] setup (compilation ImportScriptsChunkLoadingPlugin)
+[2K[1A[2K[G[8%] setup (compilation WorkerPlugin)
+[2K[1A[2K[G[8%] setup (compilation SplitChunksPlugin)
+[2K[1A[2K[G[8%] setup (compilation ResolverCachePlugin)
+[2K[1A[2K[G[8%] setup (compilation)
+[2K[1A[2K[G[9%] setup (compilation)
+[2K[1A[2K[G[9%] setup (compilation vue-loader-plugin)
+[2K[1A[2K[G[9%] setup (compilation DefinePlugin)
+[2K[1A[2K[G[9%] setup (compilation ForkTsCheckerWebpackPlugin)
+[2K[1A[2K[G[9%] setup (compilation ProgressPlugin)
+[2K[1A[2K[G[9%] setup (compilation EntryPlugin)
+[2K[1A[2K[G[9%] setup (compilation ExternalsPlugin)
+[2K[1A[2K[G[9%] setup (compilation ChunkPrefetchPreloadPlugin)
+[2K[1A[2K[G[9%] setup (compilation ModuleInfoHeaderPlugin)
+[2K[1A[2K[G[9%] setup (compilation EvalSourceMapDevToolPlugin)
+[2K[1A[2K[G[9%] setup (compilation JavascriptModulesPlugin)
+[2K[1A[2K[G[9%] setup (compilation JsonModulesPlugin)
+[2K[1A[2K[G[9%] setup (compilation AssetModulesPlugin)
+[2K[1A[2K[G[9%] setup (compilation EntryPlugin)
+[2K[1A[2K[G[9%] setup (compilation RuntimePlugin)
+[2K[1A[2K[G[9%] setup (compilation InferAsyncModulesPlugin)
+[2K[1A[2K[G[9%] setup (compilation DataUriPlugin)
+[2K[1A[2K[G[9%] setup (compilation FileUriPlugin)
+[2K[1A[2K[G[9%] setup (compilation CompatibilityPlugin)
+[2K[1A[2K[G[9%] setup (compilation HarmonyModulesPlugin)
+[2K[1A[2K[G[9%] setup (compilation AMDPlugin)
+[2K[1A[2K[G[9%] setup (compilation RequireJsStuffPlugin)
+[2K[1A[2K[G[9%] setup (compilation CommonJsPlugin)
+[2K[1A[2K[G[9%] setup (compilation LoaderPlugin)
+[2K[1A[2K[G[9%] setup (compilation NodeStuffPlugin)
+[2K[1A[2K[G[9%] setup (compilation APIPlugin)
+[2K[1A[2K[G[9%] setup (compilation ExportsInfoApiPlugin)
+[2K[1A[2K[G[9%] setup (compilation WebpackIsIncludedPlugin)
+[2K[1A[2K[G[9%] setup (compilation ConstPlugin)
+[2K[1A[2K[G[9%] setup (compilation UseStrictPlugin)
+[2K[1A[2K[G[9%] setup (compilation RequireIncludePlugin)
+[2K[1A[2K[G[9%] setup (compilation RequireEnsurePlugin)
+[2K[1A[2K[G[9%] setup (compilation RequireContextPlugin)
+[2K[1A[2K[G[9%] setup (compilation ImportPlugin)
+[2K[1A[2K[G[9%] setup (compilation ImportMetaContextPlugin)
+[2K[1A[2K[G[9%] setup (compilation SystemPlugin)
+[2K[1A[2K[G[9%] setup (compilation ImportMetaPlugin)
+[2K[1A[2K[G[9%] setup (compilation URLPlugin)
+[2K[1A[2K[G[9%] setup (compilation DefaultStatsFactoryPlugin)
+[2K[1A[2K[G[9%] setup (compilation DefaultStatsPresetPlugin)
+[2K[1A[2K[G[9%] setup (compilation DefaultStatsPrinterPlugin)
+[2K[1A[2K[G[9%] setup (compilation JavascriptMetaInfoPlugin)
+[2K[1A[2K[G[9%] setup (compilation EnsureChunkConditionsPlugin)
+[2K[1A[2K[G[9%] setup (compilation RemoveEmptyChunksPlugin)
+[2K[1A[2K[G[9%] setup (compilation MergeDuplicateChunksPlugin)
+[2K[1A[2K[G[9%] setup (compilation SideEffectsFlagPlugin)
+[2K[1A[2K[G[9%] setup (compilation FlagDependencyExportsPlugin)
+[2K[1A[2K[G[9%] setup (compilation NamedModuleIdsPlugin)
+[2K[1A[2K[G[9%] setup (compilation NamedChunkIdsPlugin)
+[2K[1A[2K[G[9%] setup (compilation DefinePlugin)
+[2K[1A[2K[G[9%] setup (compilation TemplatedPathPlugin)
+[2K[1A[2K[G[9%] setup (compilation RecordIdsPlugin)
+[2K[1A[2K[G[9%] setup (compilation WarnCaseSensitiveModulesPlugin)
+[2K[1A[2K[G[9%] setup (compilation EntryPlugin)
+[2K[1A[2K[G[9%] setup (compilation ProvidePlugin)
+[2K[1A[2K[G[9%] setup (compilation HotModuleReplacementPlugin)
+[2K[1A[2K[G[9%] setup (compilation ProgressPlugin)
+[2K[1A[2K[G[9%] setup (compilation ESLintWebpackPlugin_1)
+[2K[1A[2K[G[9%] setup (compilation)
+[2K[1A[2K[G[10%] building 
+[2K[1A[2K[G[10%] building (0/0 modules)
+[2K[1A[2K[G[10%] building (import loader babel-loader/lib/index.js)
+[2K[1A[2K[G[10%] building (import loader ts-loader/index.js)
+[2K[1A[2K[G[10%] building (0/3 modules)
+[2K[1A[2K[G[10%] building (0/14 modules)
+[2K[1A[2K[G[24%] building (5/16 modules)
+[2K[1A[2K[G[24%] building (import loader vue-loader/dist/index.js)
+[2K[1A[2K[G[24%] building (13/23 modules)
+[2K[1A[2K[G[24%] building (import loader vue-loader/dist/pitcher.js)
+[2K[1A[2K[G[24%] building (16/28 modules)
+[2K[1A[2K[G[24%] building (import loader vue-loader/dist/templateLoader.js)
+[2K[1A[2K[G[24%] building (16/28 modules)
+[2K[1A[2K[G[24%] building (import loader vue-style-loader/index.js)
+[2K[1A[2K[G[24%] building (import loader css-loader/dist/cjs.js)
+[2K[1A[2K[G[24%] building (import loader postcss-loader/dist/cjs.js)
+[2K[1A[2K[G[24%] building (16/33 modules)
+[2K[1A[2K[G[24%] building (21/69 modules)
+[2K[1A[2K[G[24%] building (import loader vue-loader/dist/stylePostLoader.js)
+[2K[1A[2K[G[24%] building (26/69 modules)
+[2K[1A[2K[G[38%] building (29/85 modules)
+[2K[1A[2K[G[51%] building (42/182 modules)
+[2K[1A[2K[G[51%] building (import loader sass-loader/dist/cjs.js)
+[2K[1A[2K[G[51%] building (44/372 modules)
+[2K[1A[2K[G[51%] building (61/654 modules)
+[2K[1A[2K[G[51%] building (98/752 modules)
+[2K[1A[2K[G[51%] building (200/1248 modules)
+[2K[1A[2K[G[51%] building (211/2286 modules)
+[2K[1A[2K[G[51%] building (353/2400 modules)
+[2K[1A[2K[G[51%] building (436/2664 modules)
+[2K[1A[2K[G[51%] building (606/3096 modules)
+[2K[1A[2K[G[51%] building (652/3679 modules)
+[2K[1A[2K[G[51%] building (1158/3812 modules)
+[2K[1A[2K[G[51%] building (3294/3972 modules)
+[2K[1A[2K[G[51%] building (4057/4228 modules)
+[2K[1A[2K[G[51%] building (4300/4510 modules)
+[2K[1A[2K[G[51%] building (4765/4973 modules)
+[2K[1A[2K[G[65%] building (5286/5286 modules)
+[2K[1A[2K[G[65%] building 
+[2K[1A[2K[G[69%] building (finish)
+[2K[1A[2K[G[70%] sealing (finish module graph)
+[2K[1A[2K[G[70%] sealing (finish module graph ResolverCachePlugin)
+[2K[1A[2K[G[70%] sealing (finish module graph InferAsyncModulesPlugin)
+[2K[1A[2K[G[70%] sealing (finish module graph FlagDependencyExportsPlugin)
+[2K[1A[2K[G[70%] sealing (finish module graph ESLintWebpackPlugin_1)
+[2K[1A[2K[G[70%] sealing (finish module graph)
+[2K[1A[2K[G[71%] sealing (plugins)
+[2K[1A[2K[G[71%] sealing (plugins WarnCaseSensitiveModulesPlugin)
+[2K[1A[2K[G[71%] sealing (plugins)
+[2K[1A[2K[G[71%] sealing (dependencies optimization)
+[2K[1A[2K[G[71%] sealing (dependencies optimization SideEffectsFlagPlugin)
+[2K[1A[2K[G[71%] sealing (dependencies optimization)
+[2K[1A[2K[G[72%] sealing (after dependencies optimization)
+[2K[1A[2K[G[73%] sealing (chunk graph)
+[2K[1A[2K[G[73%] sealing (after chunk graph)
+[2K[1A[2K[G[74%] sealing (optimizing)
+[2K[1A[2K[G[74%] sealing (module optimization)
+[2K[1A[2K[G[75%] sealing (after module optimization)
+[2K[1A[2K[G[76%] sealing (chunk optimization)
+[2K[1A[2K[G[76%] sealing (chunk optimization EnsureChunkConditionsPlugin)
+[2K[1A[2K[G[76%] sealing (chunk optimization RemoveEmptyChunksPlugin)
+[2K[1A[2K[G[76%] sealing (chunk optimization MergeDuplicateChunksPlugin)
+[2K[1A[2K[G[76%] sealing (chunk optimization SplitChunksPlugin)
+[2K[1A[2K[G[76%] sealing (chunk optimization RemoveEmptyChunksPlugin)
+[2K[1A[2K[G[76%] sealing (chunk optimization)
+[2K[1A[2K[G[76%] sealing (after chunk optimization)
+[2K[1A[2K[G[77%] sealing (module and chunk tree optimization)
+[2K[1A[2K[G[77%] sealing (module and chunk tree optimization PersistentChildCompilerSinglet
+onPlugin)
+[2K[1A[2K[1A[2K[G[77%] sealing (module and chunk tree optimization)
+[2K[1A[2K[G[78%] sealing (after module and chunk tree optimization)
+[2K[1A[2K[G[78%] sealing (chunk modules optimization)
+[2K[1A[2K[G[79%] sealing (after chunk modules optimization)
+[2K[1A[2K[G[80%] sealing (module reviving)
+[2K[1A[2K[G[80%] sealing (module reviving RecordIdsPlugin)
+[2K[1A[2K[G[80%] sealing (module reviving)
+[2K[1A[2K[G[80%] sealing (before module ids)
+[2K[1A[2K[G[81%] sealing (module ids)
+[2K[1A[2K[G[81%] sealing (module ids NamedModuleIdsPlugin)
+[2K[1A[2K[G[81%] sealing (module ids)
+[2K[1A[2K[G[82%] sealing (module id optimization)
+[2K[1A[2K[G[82%] sealing (module id optimization)
+[2K[1A[2K[G[83%] sealing (chunk reviving)
+[2K[1A[2K[G[83%] sealing (chunk reviving RecordIdsPlugin)
+[2K[1A[2K[G[83%] sealing (chunk reviving)
+[2K[1A[2K[G[83%] sealing (before chunk ids)
+[2K[1A[2K[G[84%] sealing (chunk ids)
+[2K[1A[2K[G[84%] sealing (chunk ids NamedChunkIdsPlugin)
+[2K[1A[2K[G[84%] sealing (chunk ids)
+[2K[1A[2K[G[85%] sealing (chunk id optimization)
+[2K[1A[2K[G[85%] sealing (after chunk id optimization)
+[2K[1A[2K[G[86%] sealing (record modules)
+[2K[1A[2K[G[86%] sealing (record modules RecordIdsPlugin)
+[2K[1A[2K[G[86%] sealing (record modules)
+[2K[1A[2K[G[87%] sealing (record chunks)
+[2K[1A[2K[G[87%] sealing (record chunks RecordIdsPlugin)
+[2K[1A[2K[G[87%] sealing (record chunks)
+[2K[1A[2K[G[87%] sealing (module hashing)
+[2K[1A[2K[G[88%] sealing (code generation)
+[2K[1A[2K[G[89%] sealing (runtime requirements)
+[2K[1A[2K[G[89%] sealing (hashing)
+[2K[1A[2K[G[90%] sealing (after hashing)
+[2K[1A[2K[G[91%] sealing (record hash)
+[2K[1A[2K[G[91%] sealing (module assets processing)
+[2K[1A[2K[G[92%] sealing (chunk assets processing)
+[2K[1A[2K[G[92%] sealing (asset processing)
+[2K[1A[2K[G[92%] sealing (asset processing copy-webpack-plugin)
+[2K[1A[2K[G[92%] sealing (asset processing HotModuleReplacementPlugin)
+[2K[1A[2K[G[92%] sealing (asset processing ESLintWebpackPlugin_1)
+[2K[1A[2K[G[92%] sealing (asset processing PersistentChildCompilerSingletonPlugin)
+[2K[1A[2K[G[92%] sealing (asset processing HtmlWebpackPlugin)
+[2K[1A[2K[G[92%] sealing (asset processing)
+[2K[1A[2K[G[93%] sealing (after asset optimization)
+[2K[1A[2K[G[94%] sealing (recording)
+[2K[1A[2K[G[94%] sealing (recording HotModuleReplacementPlugin)
+[2K[1A[2K[G[94%] sealing (recording)
+[2K[1A[2K[G[94%] sealing (after seal)
+[2K[1A[2K[G[95%] emitting (emit)
+[2K[1A[2K[G[98%] emitting (after emit)
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[G WARNING  Compiled with 1 warning19:02:23
+
+[eslint] 
+d:\javahouduan\javahouduan\qianduan\src\api\user.ts
+   7:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  19:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  52:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\components\AuthModal.vue
+  135:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  193:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\components\GlobalHeader.vue
+  103:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  123:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  159:67  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:70  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\components\course\CourseContent.vue
+  159:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  168:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  194:24  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+  195:23  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
+  251:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  291:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  321:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  353:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  362:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\components\course\CourseDiscuss.vue
+  140:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  141:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:21  warning  'id' is defined but never used            @typescript-eslint/no-unused-vars
+
+d:\javahouduan\javahouduan\qianduan\src\components\course\CourseGroup.vue
+  152:37  warning  'currentPage' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  152:59  warning  'pageSize' is assigned a value but never used     @typescript-eslint/no-unused-vars
+
+d:\javahouduan\javahouduan\qianduan\src\components\course\CourseTabs.vue
+  18:7  warning  'props' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+d:\javahouduan\javahouduan\qianduan\src\components\course\CourseTree.vue
+  73:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\components\course\KnowledgeGraph.vue
+   31:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   37:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   40:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   73:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   74:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  115:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  221:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  241:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  248:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  261:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  320:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  342:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  352:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  366:36  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\data\knowledgeGraphData.ts
+  636:62  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  642:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  697:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\main.ts
+  11:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  13:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  25:6   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:27  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\pages\admin\MaterialManage.vue
+  126:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  206:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  213:42  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\pages\admin\UserManage.vue
+   54:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   56:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  136:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  143:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\store\useUesrLogin.ts
+    6:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   13:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   23:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   26:33  warning  'userInfo' is defined but never used      @typescript-eslint/no-unused-vars
+   26:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   46:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   63:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  107:26  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  132:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+d:\javahouduan\javahouduan\qianduan\src\views\UserCenter.vue
+   93:10  warning  'message' is defined but never used       @typescript-eslint/no-unused-vars
+  116:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  222:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 72 problems (0 errors, 72 warnings)
+
+
+You may use special comments to disable some warnings.
+Use // eslint-disable-next-line to ignore the next line.
+Use /* eslint-disable */ to ignore all warnings in a file.
+Build finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[G
+  App running at:
+  - Local:   http://localhost:3000/ 
+  - Network: http://10.112.1.30:3000/
+
+  Note that the development build is not optimized.
+  To create a production build, run npm run build.
+
+Build finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GBuild finished at 19:02:23 by 0.000s
+[2K[1A[2K[GNo issues found.

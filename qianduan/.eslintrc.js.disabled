@@ -1,0 +1,8 @@
+/*
+ This file intentionally disables the ESLint configuration for this project.
+ To re-enable ESLint, rename this file to `.eslintrc.js` or restore your original ESLint config file.
+
+ Keeping a tiny, harmless module export here in case some tooling attempts to load the file by path.
+*/
+
+module.exports = {};
