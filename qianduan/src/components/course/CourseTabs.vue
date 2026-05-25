@@ -14,7 +14,7 @@
 </template>
 
 <script setup>
-const tabs = [{key:'content',label:'学习内容'},{key:'discuss',label:'讨论区'},{key:'notice',label:'公告'},{key:'group',label:'分组'},{key:'grade',label:'成绩单'}]
+const tabs = [{key:'content',label:'学习内容'},{key:'discuss',label:'讨论区'},{key:'notice',label:'公告'},{key:'test',label:'测试'},{key:'grade',label:'成绩单'}]
 const props = defineProps({ activeTab: String })
 const emit = defineEmits(['update:activeTab'])
 const handleTabClick = k => emit('update:activeTab', k)

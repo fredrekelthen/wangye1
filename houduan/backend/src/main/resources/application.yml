@@ -1,7 +1,19 @@
 spring:
     data:
         mongodb:
-            # 如果是本地数据库：
             uri: mongodb://localhost:27017/student_db
-            # 如果有账号密码：
-            # uri: mongodb://username:password@localhost:27017/xuexitong_db
+
+server:
+    port: 8080
+
+glm:
+    api:
+        key: a24a6536b1634e52bb40ab2db0dc775e.yl6sRRgtObXCWikK
+        url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+        model: glm-4.7
+
+agent:
+    frontend:
+        path: ../../qianduan
+    backend:
+        path: .

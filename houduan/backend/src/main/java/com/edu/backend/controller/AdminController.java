@@ -46,6 +46,9 @@ public class AdminController {
      * 检查管理员权限
      */
     private void checkAdminPermission(String userId) {
+        if (userId == null || userId.isEmpty()) {
+            throw new RuntimeException("用户未登录，请先登录");
+        }
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) {
             throw new RuntimeException("用户不存在");

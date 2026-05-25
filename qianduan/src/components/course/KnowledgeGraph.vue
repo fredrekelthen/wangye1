@@ -45,12 +45,24 @@ const debounceClick = (fn: () => void, delay = 200) => {
   clickDebounceTimer = setTimeout(fn, delay)
 }
 
-// 【优化点 4】：全新的生动色彩配置 (科技教育风)
+// 页面风格一致的配色方案
 const COLORS = {
-  root: { fill: '#4f46e5', stroke: '#4338ca', text: '#000000' },      // 根节点：活力靛蓝，黑色字体
-  level1: { fill: '#e0f2fe', stroke: '#38bdf8', text: '#0284c7' },    // 一级节点：清爽天蓝
-  level2: { fill: '#f0fdf4', stroke: '#86efac', text: '#16a34a' },    // 二级节点：柔和薄荷绿
-  edge: { stroke: '#c7d2fe' },                                        // 连线：带有淡紫色的柔和蓝
+  root: { 
+    fill: '#1890ff', 
+    stroke: '#096dd9', 
+    text: '#ffffff' 
+  },
+  level1: { 
+    fill: '#e6f7ff', 
+    stroke: '#91d5ff', 
+    text: '#1890ff' 
+  },
+  level2: { 
+    fill: '#f6ffed', 
+    stroke: '#b7eb8f', 
+    text: '#389e0d' 
+  },
+  edge: { stroke: '#91d5ff' },
 }
 
 // 每个章节的核心知识点ID列表（各选取3-4个最核心的知识点）
@@ -256,63 +268,108 @@ function renderGraph() {
       { type: 'collapse-expand', trigger: 'click', animation: { duration: 200 } },
     ],
     node: {
-      // 【优化点 1】：明确指定节点类型为矩形，配合 radius 即可变成正规的圆角长方形
-      type: 'rect', 
+      type: 'rect',
       style: (d: any) => {
         const nodeType = d.data?.nodeType || ''
-        const colorSet = nodeType === 'root' ? COLORS.root : nodeType.includes('level1') ? COLORS.level1 : COLORS.level2
         const isRoot = nodeType === 'root'
+        const isLevel1 = nodeType === 'level1'
+        const label = d.data?.label || ''
 
-        // 根据节点层级设置字体大小（二号=29.3px，三号=21.3px，小三号=20px）
-        let fontSize = 20
+        let fillColor, textColor, shadowColor, strokeColor
         if (isRoot) {
-          fontSize = 29.3 // 二号字体
-        } else if (nodeType === 'level1') {
-          fontSize = 21.3 // 三号字体
+          fillColor = '#1890ff'
+          textColor = '#ffffff'
+          shadowColor = 'rgba(24, 144, 255, 0.3)'
+          strokeColor = '#096dd9'
+        } else if (isLevel1) {
+          fillColor = '#e6f7ff'
+          textColor = '#1890ff'
+          shadowColor = 'rgba(24, 144, 255, 0.15)'
+          strokeColor = '#91d5ff'
         } else {
-          fontSize = 20 // 小三号字体
+          fillColor = '#f6ffed'
+          textColor = '#389e0d'
+          shadowColor = 'rgba(56, 158, 13, 0.15)'
+          strokeColor = '#b7eb8f'
+        }
+
+        let fontSize = 13
+        let nodeWidth = 160
+        let nodeHeight = 44
+        if (isRoot) {
+          fontSize = 17
+          nodeWidth = 220
+          nodeHeight = 56
+        } else if (isLevel1) {
+          fontSize = 14
+          nodeWidth = 180
+          nodeHeight = 48
+        } else {
+          fontSize = 12
+          nodeWidth = 170
+          nodeHeight = 42
+        }
+
+        const labelLength = label.length
+        if (labelLength > 8) {
+          nodeWidth += (labelLength - 8) * 10
         }
 
         return {
-          size: isRoot ? [180, 50] : [130, 36],
-          radius: 8, // 【优化点 1】：8px 圆角，经典的现代圆角长方形
-          fill: colorSet.fill,
-          stroke: isRoot ? 'transparent' : colorSet.stroke,
+          size: [nodeWidth, nodeHeight],
+          radius: 8,
+          fill: fillColor,
+          stroke: strokeColor,
           lineWidth: isRoot ? 0 : 1.5,
-          shadowColor: isRoot ? 'rgba(79, 70, 229, 0.3)' : 'transparent', // 根节点增加带颜色的发光阴影
-          shadowBlur: isRoot ? 16 : 0,
-          shadowOffsetY: 6,
+          shadowColor: shadowColor,
+          shadowBlur: isRoot ? 16 : 8,
+          shadowOffsetX: 0,
+          shadowOffsetY: isRoot ? 6 : 4,
           cursor: 'pointer',
-
-          // 【优化点 2】：完美的文本居中配置
-          labelText: d.data?.label || '',
-          labelFill: colorSet.text,
+          labelText: label,
+          labelFill: textColor,
           labelFontSize: fontSize,
-          labelFontWeight: isRoot ? 600 : 500,
-          labelFontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          labelPlacement: 'center',     // 标签置于形状中心
-          labelTextAlign: 'center',     // 水平绝对居中
-          labelTextBaseline: 'middle',  // 垂直绝对居中
-
-          // 【优化点 3】：通过设置固定的 ports (锚点)，让线条强制从节点正中间边缘的同一点发出
+          labelFontWeight: isRoot ? 700 : 600,
+          labelFontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          labelPlacement: 'center',
+          labelTextAlign: 'center',
+          labelTextBaseline: 'middle',
           ports: [
-            { key: 'left', placement: [0, 0.5] },   // 节点左边缘正中
-            { key: 'right', placement: [1, 0.5] }   // 节点右边缘正中
+            { key: 'left', placement: [0, 0.5] },
+            { key: 'right', placement: [1, 0.5] }
           ]
         }
       },
       state: {
-        hover: { lineWidth: 2, stroke: '#6366f1', fill: '#eef2ff' },
-        selected: { lineWidth: 2.5, stroke: '#4f46e5', fill: '#e0e7ff' },
+        hover: {
+          lineWidth: 2.5,
+          stroke: '#40a9ff',
+          shadowBlur: 16,
+          transform: 'translateY(-3px)'
+        },
+        selected: {
+          lineWidth: 3,
+          stroke: '#1890ff',
+          shadowBlur: 20
+        }
       },
+      animation: {
+        appear: {
+          animation: 'scale-in',
+          duration: 600,
+          easing: 'easeOutElastic'
+        }
+      }
     },
     edge: {
       type: 'cubic-horizontal',
       style: {
         endArrow: false,
-        stroke: COLORS.edge.stroke,
-        lineWidth: 1.8, // 线条稍微加粗一点点，更有质感
-      },
+        stroke: '#91d5ff',
+        lineWidth: 2,
+        shadowColor: 'rgba(24, 144, 255, 0.1)',
+        shadowBlur: 3
+      }
     },
   })
 
@@ -425,25 +482,75 @@ defineExpose({ renderGraph })
 </script>
 
 <style scoped>
-/* 样式保持不变 */
 .knowledge-graph-container {
-  background: linear-gradient(135deg, #f8fafc 0%, #eef2f6 100%);
-  border-radius: 12px;
-  padding: 16px;
+  background: #fff;
+  border-radius: 4px;
+  padding: 20px;
   min-height: 880px;
   position: relative;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #e6e6e6;
 }
+
 .graph-header {
   display: flex;
   align-items: center;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e6e6e6;
   gap: 12px;
 }
-.back-btn { box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-.graph-header-title { font-size: 15px; font-weight: 600; color: #334155; }
-.g6-container { width: 100%; height: calc(880px - 70px); min-height: 800px; background: transparent; }
+
+.back-btn {
+  border-radius: 4px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  background: #40a9ff;
+  transform: translateY(-1px);
+}
+
+.graph-header-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.g6-container {
+  width: 100%;
+  height: calc(880px - 80px);
+  min-height: 800px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  position: relative;
+}
+
+:deep(.g6-node) {
+  animation: float 3s ease-in-out infinite;
+}
+
+:deep(.g6-node:nth-child(3n)) {
+  animation-delay: 0.5s;
+}
+
+:deep(.g6-node:nth-child(3n+1)) {
+  animation-delay: 1s;
+}
+
+:deep(.g6-node:nth-child(3n+2)) {
+  animation-delay: 1.5s;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
 </style>

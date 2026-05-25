@@ -58,10 +58,7 @@
       </li>
     </ul>
 
-    <div class="exam">
-      <div class="exam-title">期末考试</div>
-      <div class="exam-score">得分：<strong>73.5</strong></div>
-    </div>
+
   </div>
 </template>
 
@@ -320,21 +317,5 @@ const toggleSection = (cIdx: number, sIdx: number) => {
   width: 18px;
 }
 
-.exam {
-  margin-top: 14px;
-  padding: 10px;
-  border-top: 1px dashed #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 
-.exam-title {
-  font-weight: 600;
-  color: #007BFF;
-}
-
-.exam-score strong {
-  color: #00B894;
-}
 </style>

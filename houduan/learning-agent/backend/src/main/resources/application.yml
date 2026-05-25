@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: learning-agent
+  
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/student_db
+
+server:
+  port: 8081
+
+glm:
+  api:
+    key: a24a6536b1634e52bb40ab2db0dc775e.yl6sRRgtObXCWikK
+    url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+    model: glm-4
+
+agent:
+  frontend:
+    path: ../qianduan
+  backend:
+    path: ../backend

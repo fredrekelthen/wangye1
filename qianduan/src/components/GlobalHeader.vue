@@ -1,10 +1,10 @@
 <template>
-  <div id ="global-header">
+  <div id="global-header">
     <a-row :wrap="false" align="middle" justify="space-between">
       <a-col flex="200px">
-        <div  class = "title-bar">
-          <img class = "loge" src = "@/assets/huzuhhh.jpg" alt = "loge"/>
-          <div class = "title">思政教育</div>
+        <div class="title-bar">
+          <img class="logo" src="@/assets/huzuhhh.jpg" alt="logo"/>
+          <div class="title">思政教育</div>
         </div>
       </a-col>
       <a-col flex="auto">
@@ -15,16 +15,18 @@
           @click="doMenuClick"
         />
       </a-col>
-      <!-- 【关键】使用 computedUser 作为唯一数据源，带 fallback -->
-      <a-col flex="140px">
-        <div class ="login-status" :key="'login-' + (computedUser?.id || 'no-user')">
+      <a-col flex="auto" class="right-section">
+        <a-button class="ai-assistant-btn" @click="openAgentChat">
+          <RobotOutlined /> AI助手
+        </a-button>
+        <div class="login-status" :key="'login-' + (computedUser?.id || 'no-user')">
           <a-dropdown v-if="isUserLoggedIn">
             <div class="user-info">
-              <a-avatar :size="32" style="background-color: #00B894;">
+              <a-avatar :size="32" class="user-avatar">
                 {{ (computedUser.userName || computedUser.userAccount || '用').charAt(0).toUpperCase() }}
               </a-avatar>
               <span class="username">{{ computedUser.userName || computedUser.userAccount || '用户' }}</span>
-              <CaretDownOutlined style="color: #666; font-size: 12px;" />
+              <CaretDownOutlined class="dropdown-icon" />
             </div>
             <template #overlay>
               <a-menu @click="handleMenuClick">
@@ -38,49 +40,44 @@
               </a-menu>
             </template>
           </a-dropdown>
-          <a-button v-else type = "primary" @click="showAuthModal">登录/注册</a-button>
+          <a-button v-else class="login-btn" @click="showAuthModal">登录/注册</a-button>
         </div>
       </a-col>
     </a-row>
 
-    <!-- 登录注册弹窗 -->
     <AuthModal v-model:visible="authModalVisible" />
+    <AgentChat v-model:open="agentModalVisible" />
   </div>
 </template>
 
 <script lang="ts" setup>
 import { h, ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { CrownOutlined, HomeOutlined, UserOutlined, CaretDownOutlined, LogoutOutlined } from '@ant-design/icons-vue'
+import { CrownOutlined, HomeOutlined, UserOutlined, CaretDownOutlined, LogoutOutlined, RobotOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { useUserLogin, getGlobalCurrentUser } from '@/store/useUesrLogin'
 import { message } from 'ant-design-vue'
 import { userLogout } from '@/api/user'
 import AuthModal from './AuthModal.vue'
+import AgentChat from './AgentChat.vue'
 
 const router = useRouter()
 const authModalVisible = ref(false)
+const agentModalVisible = ref(false)
 const userStore = useUserLogin()
 
-// 【关键】统一数据源计算属性 - 带三层 fallback
 const computedUser = computed(() => {
-  // 第一层：Pinia Store ref（Vue 响应式）
   const storeUser = userStore.loginUser.value
   if (storeUser && storeUser.id) {
     return storeUser
   }
   
-  // 第二层：全局变量（跨实例保障）
   const globalUser = userStore.globalLoginUser?.()
   if (globalUser && globalUser.id) {
-    console.log('[GlobalHeader] 使用 fallback: globalLoginUser')
     return globalUser
   }
   
-  // 第三层：localStorage（持久化保障）
   const lsUser = getGlobalCurrentUser()
   if (lsUser && lsUser.id) {
-    console.log('[GlobalHeader] 使用 fallback: localStorage')
-    // 回填到 Pinia，恢复响应式
     nextTick(() => {
       if (!userStore.loginUser.value?.id) {
         userStore.setLoginUser(lsUser)
@@ -92,10 +89,8 @@ const computedUser = computed(() => {
   return null
 })
 
-// 是否已登录
 const isUserLoggedIn = computed(() => !!computedUser.value?.id)
 
-// 监听变化（调试）
 watch(computedUser, (newVal) => {
   console.log('[GlobalHeader] computedUser 变化:', newVal?.id ? newVal.userAccount + '(id=' + newVal.id.substring(0,8) + '...)' : 'null/undefined')
 }, { immediate: true })
@@ -106,19 +101,18 @@ router.afterEach(to=> current.value = [to.path])
 
 const openAuthModal = ()=> authModalVisible.value = true
 const showAuthModal = openAuthModal
-defineExpose({ openAuthModal })
+const openAgentChat = ()=> agentModalVisible.value = true
+defineExpose({ openAuthModal, openAgentChat })
 
 const onStorage = ()=>{
   const m = localStorage.getItem('openAuthModalMode')
   if (m === 'login' || m === 'register') { openAuthModal(); localStorage.removeItem('openAuthModalMode') }
 }
 
-// 监听全局登录事件
 const handleUserLoggedIn = () => {
   console.log('[GlobalHeader] 收到登录事件')
 }
 
-// 动态生成菜单项
 const menuItems = computed(() => {
   const items: any[] = [
     { key: '/', icon: ()=>h(HomeOutlined), label: '主页', title: '主页' },
@@ -138,7 +132,6 @@ const menuItems = computed(() => {
   return items
 })
 
-// 处理下拉菜单点击
 const handleMenuClick = async ({ key }: { key: string }) => {
   if (key === 'profile') {
     router.push('/user-center')
@@ -155,49 +148,105 @@ const handleMenuClick = async ({ key }: { key: string }) => {
   }
 }
 
+const handleOpenAgentChat = () => {
+  openAgentChat()
+}
+
 onMounted(()=> {
   window.addEventListener('user-logged-in', handleUserLoggedIn as any)
-  
-  // 初始化时也检查 fallback
-  if (!userStore.loginUser.value?.id) {
-    const fallbackUser = getGlobalCurrentUser()
-    if (fallbackUser?.id) {
-      console.log('[GlobalHeader] 初始化时从 fallback 恢复用户:', fallbackUser.userAccount)
-      userStore.setLoginUser(fallbackUser)
-    }
-  }
-  
   window.addEventListener('storage', onStorage)
+  window.addEventListener('openAgentChat', handleOpenAgentChat)
 })
 
 onUnmounted(()=> { 
   window.removeEventListener('user-logged-in', handleUserLoggedIn as any)
   window.removeEventListener('storage', onStorage)
+  window.removeEventListener('openAgentChat', handleOpenAgentChat)
 })
 </script>
 
 <style scoped>
-.title-bar{
-  display:flex;
-  align-items: center ;
+#global-header {
+  background: linear-gradient(135deg, #1e88e5 0%, #00b894 100%);
+  padding: 0 24px;
 }
-.title{
-  color: #f0f0f0;
+
+.title-bar {
+  display: flex;
+  align-items: center;
+}
+
+.title {
+  color: #ffffff;
   font-size: 18px;
   margin-left: 16px;
   font-weight: 600;
 }
-.loge{
+
+.logo {
   height: 44px;
 }
+
+.right-section {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding-right: 12px;
+}
+
+.ai-assistant-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.ai-assistant-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #ffffff !important;
+}
+
+.login-btn {
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  color: #00b894;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.login-btn:hover {
+  background: #ffffff;
+  color: #00b894 !important;
+  box-shadow: 0 2px 8px rgba(0, 184, 148, 0.3);
+}
+
+::deep(.ant-menu) {
+  background: linear-gradient(135deg, #1e88e5 0%, #00b894 100%) !important;
+  border-bottom: none !important;
+}
+
+::deep(.ant-menu-horizontal) {
+  background: linear-gradient(135deg, #1e88e5 0%, #00b894 100%) !important;
+}
+
+::deep(.ant-menu-item) {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+::deep(.ant-menu-item:hover) {
+  color: #ffffff !important;
+}
+
 ::deep(.ant-menu-item-selected) {
-  background: linear-gradient(135deg, #00B894 0%, #55E6C1 100%) !important;
-  color: #fff !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: #ffffff !important;
   border-radius: 4px;
 }
-::deep(.ant-menu-item:hover) {
-  color: #00B894 !important;
-}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -206,13 +255,21 @@ onUnmounted(()=> {
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
 }
+
 .user-info:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
 }
+
+.user-avatar {
+  background: rgba(255, 255, 255, 0.3) !important;
+  color: #ffffff;
+  font-weight: 600;
+}
+
 .username {
-  color: #f0f0f0;
+  color: #ffffff;
   font-size: 14px;
   font-weight: 500;
   max-width: 80px;
@@ -220,6 +277,12 @@ onUnmounted(()=> {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.dropdown-icon {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
 .login-status {
   display: flex;
   align-items: center;

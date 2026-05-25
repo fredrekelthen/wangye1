@@ -1,152 +1,450 @@
 package com.edu.backend.controller;
 
-import com.edu.backend.model.dto.MaterialQueryRequest;
-import com.edu.backend.model.dto.MaterialUploadRequest;
-import com.edu.backend.model.entity.Material;
-import com.edu.backend.service.MaterialService;
-import com.edu.backend.utils.BaseResponse;
-import com.edu.backend.utils.ResultUtils;
-import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
+import com.edu.backend.model.Material;
+import com.edu.backend.service.FileParsingService;
+import com.edu.backend.service.RAGKnowledgeBaseService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.io.IOException;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.*;
 
-import java.util.List;
-
-/**
- * 资料控制器
- */
-@Slf4j
 @RestController
-@RequestMapping("/api/material")
+@RequestMapping("/api/materials")
+@CrossOrigin(origins = "*")
 public class MaterialController {
-
-    @Resource
-    private MaterialService materialService;
-
+    
+    @Autowired
+    private MongoTemplate mongoTemplate;
+    
+    @Autowired
+    private RAGKnowledgeBaseService ragService;
+    
+    @Autowired
+    private FileParsingService fileParsingService;
+    
+    @Value("${upload.directory:uploads}")
+    private String uploadDirectory;
+    
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    
     /**
      * 上传资料
      */
     @PostMapping("/upload")
-    public BaseResponse<Material> uploadMaterial(
-            @RequestBody MaterialUploadRequest materialUploadRequest,
-            HttpServletRequest request
-    ) {
+    public ResponseEntity<Map<String, Object>> uploadMaterial(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "title", required = false) String title,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "category", required = false) String category,
+            @RequestParam(value = "chapterNumber", required = false) Integer chapterNumber,
+            @RequestParam(value = "uploadedBy", required = false) String uploadedBy) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
-            Material material = materialService.uploadMaterial(materialUploadRequest, userId);
-            return ResultUtils.success(material, "上传成功");
+            // 验证文件
+            if (!fileParsingService.isValidFileType(file)) {
+                response.put("success", false);
+                response.put("message", "不支持的文件类型，请上传PDF、Word或TXT文件");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            if (!fileParsingService.isValidFileSize(file)) {
+                response.put("success", false);
+                response.put("message", "文件大小超过限制（最大10MB）");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            // 保存文件
+            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            Path uploadPath = Paths.get(uploadDirectory);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+            Path filePath = uploadPath.resolve(fileName);
+            Files.copy(file.getInputStream(), filePath);
+            
+            // 解析文件内容
+            String content = fileParsingService.parseFile(file);
+            
+            // 创建资料对象
+            Material material = new Material();
+            material.setId(UUID.randomUUID().toString());
+            material.setTitle(title != null ? title : file.getOriginalFilename());
+            material.setDescription(description);
+            material.setFileName(file.getOriginalFilename());
+            material.setFileType(getFileType(file.getOriginalFilename()));
+            material.setFileUrl(filePath.toString());
+            material.setFileSize(file.getSize());
+            material.setCategory(category);
+            material.setChapterNumber(chapterNumber);
+            material.setUploadedBy(uploadedBy != null ? uploadedBy : "admin");
+            material.setUploadedAt(LocalDateTime.now());
+            material.setUpdatedAt(LocalDateTime.now());
+            material.setIsActive(true);
+            material.setIsIndexed(false);
+            
+            // 保存资料到MongoDB
+            mongoTemplate.save(material);
+            
+            // 在后台处理RAG索引
+            new Thread(() -> {
+                try {
+                    ragService.processMaterial(material, content);
+                } catch (Exception e) {
+                    System.err.println("RAG处理失败: " + e.getMessage());
+                }
+            }).start();
+            
+            response.put("success", true);
+            response.put("message", "资料上传成功，正在后台建立索引...");
+            response.put("material", convertToMap(material));
+            
+            return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
-            log.error("资料上传失败：{}", e.getMessage());
-            return ResultUtils.error(40000, e.getMessage());
+            response.put("success", false);
+            response.put("message", "上传失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
+    
     /**
-     * 上传文件（存储到服务器并返回访问URL/元数据）
-     */
-    @PostMapping("/upload-file")
-    public BaseResponse<Map<String, Object>> uploadFile(@RequestParam("file") MultipartFile file,
-                                                        HttpServletRequest request) {
-        try {
-            if (file == null || file.isEmpty()) {
-                return ResultUtils.error(40001, "文件不能为空");
-            }
-
-            // 存储目录（相对于运行目录的 uploads 文件夹）
-            String uploadDir = System.getProperty("user.dir") + "/uploads";
-
-            // 使用工具类保存并计算 md5
-            String savedFileName = com.edu.backend.utils.FileStorageUtil.saveFile(file, uploadDir);
-            String md5 = com.edu.backend.utils.FileStorageUtil.calculateMD5(file);
-
-            String baseUrl = request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
-            String filePath = baseUrl + "/uploads/" + savedFileName;
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("filePath", filePath);
-            result.put("fileName", file.getOriginalFilename());
-            String orig = file.getOriginalFilename();
-            String ext = "";
-            if (orig != null && orig.contains(".")) {
-                ext = orig.substring(orig.lastIndexOf('.') + 1).toLowerCase();
-            }
-            result.put("fileType", ext);
-            result.put("fileSize", file.getSize());
-            result.put("md5", md5);
-
-            return ResultUtils.success(result, "文件上传成功");
-        } catch (IOException e) {
-            log.error("文件保存失败：{}", e.getMessage());
-            return ResultUtils.error(50000, "文件保存失败: " + e.getMessage());
-        } catch (Exception e) {
-            log.error("文件上传异常：{}", e.getMessage());
-            return ResultUtils.error(50000, e.getMessage());
-        }
-    }
-
-    /**
-     * 获取资料列表（分页）
+     * 获取所有资料列表
      */
     @GetMapping("/list")
-    public BaseResponse<Object> getMaterialList(MaterialQueryRequest materialQueryRequest) {
+    public ResponseEntity<Map<String, Object>> getMaterials(
+            @RequestParam(value = "chapter", required = false) Integer chapter) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
         try {
-            Object materialList = materialService.getMaterialList(materialQueryRequest);
-            return ResultUtils.success(materialList);
+            Query query = new Query();
+            query.addCriteria(Criteria.where("isActive").is(true));
+            if (chapter != null) {
+                query.addCriteria(Criteria.where("chapterNumber").is(chapter));
+            }
+            
+            List<Material> materials = mongoTemplate.find(query, Material.class);
+            
+            // 如果没有资料，返回空列表而不是错误
+            response.put("success", true);
+            response.put("materials", materials);
+            response.put("total", materials.size());
+            
+            return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
-            log.error("获取资料列表失败：{}", e.getMessage());
-            return ResultUtils.error(40000, e.getMessage());
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "获取资料列表失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
+    
     /**
-     * 根据ID获取资料
+     * 获取单个资料详情
      */
     @GetMapping("/{id}")
-    public BaseResponse<Material> getMaterialById(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> getMaterial(@PathVariable String id) {
+        Map<String, Object> response = new HashMap<>();
+        
         try {
-            Material material = materialService.getMaterialById(id);
-            return ResultUtils.success(material);
+            Query query = new Query(Criteria.where("id").is(id));
+            Material material = mongoTemplate.findOne(query, Material.class);
+            
+            if (material == null) {
+                response.put("success", false);
+                response.put("message", "资料不存在");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            
+            response.put("success", true);
+            response.put("material", convertToMap(material));
+            
+            return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
-            log.error("获取资料失败：{}", e.getMessage());
-            return ResultUtils.error(40000, e.getMessage());
+            response.put("success", false);
+            response.put("message", "获取资料详情失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
+    
     /**
-     * 根据章节和小节获取资料列表
+     * 更新资料信息
      */
-    @GetMapping("/by-chapter")
-    public BaseResponse<List<Material>> getMaterialsByChapterAndLesson(
-            @RequestParam String chapterTitle,
-            @RequestParam(required = false) String lessonTitle
-    ) {
+    @PutMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> updateMaterial(
+            @PathVariable String id,
+            @RequestBody Map<String, Object> updates) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
         try {
-            List<Material> materials = materialService.getMaterialsByChapterAndLesson(chapterTitle, lessonTitle);
-            return ResultUtils.success(materials);
+            Query query = new Query(Criteria.where("id").is(id));
+            Material material = mongoTemplate.findOne(query, Material.class);
+            
+            if (material == null) {
+                response.put("success", false);
+                response.put("message", "资料不存在");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            
+            // 更新字段
+            if (updates.containsKey("title")) {
+                material.setTitle((String) updates.get("title"));
+            }
+            if (updates.containsKey("description")) {
+                material.setDescription((String) updates.get("description"));
+            }
+            if (updates.containsKey("category")) {
+                material.setCategory((String) updates.get("category"));
+            }
+            if (updates.containsKey("chapterNumber")) {
+                material.setChapterNumber((Integer) updates.get("chapterNumber"));
+            }
+            
+            material.setUpdatedAt(LocalDateTime.now());
+            mongoTemplate.save(material);
+            
+            response.put("success", true);
+            response.put("message", "资料更新成功");
+            response.put("material", convertToMap(material));
+            
+            return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
-            log.error("获取资料列表失败：{}", e.getMessage());
-            return ResultUtils.error(40000, e.getMessage());
+            response.put("success", false);
+            response.put("message", "更新失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
-
+    
     /**
      * 删除资料
      */
-    @PostMapping("/delete")
-    public BaseResponse<Boolean> deleteMaterial(@RequestParam String id, HttpServletRequest request) {
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, Object>> deleteMaterial(@PathVariable String id) {
+        Map<String, Object> response = new HashMap<>();
+        
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
-            Boolean result = materialService.deleteMaterial(id, userId);
-            return ResultUtils.success(result, "删除成功");
+            // 删除文件
+            Query query = new Query(Criteria.where("id").is(id));
+            Material material = mongoTemplate.findOne(query, Material.class);
+            
+            if (material != null && material.getFileUrl() != null) {
+                Path filePath = Paths.get(material.getFileUrl());
+                Files.deleteIfExists(filePath);
+            }
+            
+            // 删除数据库记录（RAG服务会删除关联的chunks）
+            ragService.deleteMaterial(id);
+            
+            response.put("success", true);
+            response.put("message", "资料删除成功");
+            
+            return ResponseEntity.ok(response);
+            
         } catch (Exception e) {
-            log.error("删除资料失败：{}", e.getMessage());
-            return ResultUtils.error(40000, e.getMessage());
+            response.put("success", false);
+            response.put("message", "删除失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
+    }
+    
+    /**
+     * 获取知识库统计信息
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<Map<String, Object>> getStats() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            Map<String, Object> stats = new HashMap<>();
+            try {
+                stats = ragService.getKnowledgeBaseStats();
+            } catch (Exception e) {
+                // 如果获取统计信息失败，返回默认值
+                stats.put("totalMaterials", 0);
+                stats.put("totalChunks", 0);
+                stats.put("averageChunksPerMaterial", 0);
+            }
+            
+            response.put("success", true);
+            response.put("stats", stats);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            // 即使出错也返回默认值
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("totalMaterials", 0);
+            stats.put("totalChunks", 0);
+            stats.put("averageChunksPerMaterial", 0);
+            response.put("success", true);
+            response.put("stats", stats);
+            
+            return ResponseEntity.ok(response);
+        }
+    }
+    
+    /**
+     * 基于知识库回答问题
+     */
+    @PostMapping("/query")
+    public ResponseEntity<Map<String, Object>> queryKnowledgeBase(
+            @RequestBody Map<String, String> request) {
+        
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            String question = request.get("question");
+            if (question == null || question.trim().isEmpty()) {
+                response.put("success", false);
+                response.put("message", "问题不能为空");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            String defaultResponse = "抱歉，我没有找到相关的资料来回答您的问题。";
+            String answer = ragService.enhancedQA(question, defaultResponse);
+            
+            response.put("success", true);
+            response.put("question", question);
+            response.put("answer", answer);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "查询失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 获取按章节分组的资料列表
+     */
+    @GetMapping("/by-chapter")
+    public ResponseEntity<Map<String, Object>> getMaterialsByChapter() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            List<Material> allMaterials = ragService.getAllMaterials();
+            
+            // 按章节分组
+            Map<Integer, List<Material>> materialsByChapter = new TreeMap<>();
+            for (Material material : allMaterials) {
+                Integer chapter = material.getChapterNumber();
+                if (chapter == null) {
+                    chapter = 0;
+                }
+                materialsByChapter.computeIfAbsent(chapter, k -> new ArrayList<>()).add(material);
+            }
+            
+            response.put("success", true);
+            response.put("materialsByChapter", materialsByChapter);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "获取资料列表失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 根据章节生成学习内容
+     */
+    @GetMapping("/generate-content/{chapter}")
+    public ResponseEntity<Map<String, Object>> generateChapterContent(@PathVariable Integer chapter) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            List<Material> materials = ragService.getMaterialsByChapter(chapter);
+            
+            if (materials.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "该章节暂无资料，请先上传资料");
+                return ResponseEntity.ok(response);
+            }
+            
+            // 构建提示词
+            StringBuilder prompt = new StringBuilder();
+            prompt.append("基于以下资料，为第").append(chapter).append("章生成完整的学习内容：\n\n");
+            
+            for (Material material : materials) {
+                prompt.append("【").append(material.getTitle()).append("】\n");
+                prompt.append(material.getDescription()).append("\n\n");
+            }
+            
+            prompt.append("请生成包含以下部分的学习内容：\n");
+            prompt.append("1. 章节概述\n");
+            prompt.append("2. 核心知识点\n");
+            prompt.append("3. 重点难点\n");
+            prompt.append("4. 学习建议\n");
+            prompt.append("5. 相关习题\n");
+            
+            response.put("success", true);
+            response.put("chapter", chapter);
+            response.put("materials", materials.size());
+            response.put("prompt", prompt.toString());
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "生成学习内容失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+    
+    /**
+     * 辅助方法：获取文件类型
+     */
+    private String getFileType(String fileName) {
+        if (fileName == null) return "unknown";
+        String lowerName = fileName.toLowerCase();
+        if (lowerName.endsWith(".pdf")) return "pdf";
+        if (lowerName.endsWith(".docx")) return "docx";
+        if (lowerName.endsWith(".doc")) return "doc";
+        if (lowerName.endsWith(".txt")) return "txt";
+        if (lowerName.endsWith(".md")) return "md";
+        return "unknown";
+    }
+    
+    /**
+     * 辅助方法：转换对象为Map
+     */
+    private Map<String, Object> convertToMap(Material material) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", material.getId());
+        map.put("title", material.getTitle());
+        map.put("description", material.getDescription());
+        map.put("fileName", material.getFileName());
+        map.put("fileType", material.getFileType());
+        map.put("fileSize", material.getFileSize());
+        map.put("category", material.getCategory());
+        map.put("chapterNumber", material.getChapterNumber());
+        map.put("uploadedBy", material.getUploadedBy());
+        map.put("uploadedAt", material.getUploadedAt());
+        map.put("updatedAt", material.getUpdatedAt());
+        map.put("isIndexed", material.getIsIndexed());
+        return map;
     }
 }

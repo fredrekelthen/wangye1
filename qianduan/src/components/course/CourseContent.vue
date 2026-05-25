@@ -3,16 +3,6 @@
     <div class="section-header">
       <h3 class="section-title">{{ currentView === 'graph' ? '知识图谱' : '学习内容' }}</h3>
       <div class="header-actions">
-        <div class="progress-info">
-          <span class="progress-text">学习进度</span>
-          <a-progress
-            :percent="progress"
-            :stroke-color="progressColor"
-            :show-info="true"
-            :format="(percent: number) => `${percent}%`"
-            style="width: 200px"
-          />
-        </div>
         <a-button
           v-if="currentView !== 'materials'"
           type="primary"
@@ -166,17 +156,6 @@ const videoRef = ref<HTMLVideoElement | null>(null);
 
 // 已上传的资料
 const uploadedMaterials = ref<any[]>([]);
-
-// 学习进度（固定值，实际应该从API获取）
-const progress = ref(65);
-
-const progressColor = computed(() => {
-  const p = progress.value;
-  if (p >= 80) return '#52c41a';
-  if (p >= 60) return '#1890ff';
-  if (p >= 40) return '#faad14';
-  return '#ff4d4f';
-});
 
 // 加载已上传的资料
 const loadUploadedMaterials = () => {
@@ -414,19 +393,6 @@ onUnmounted(() => {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 20px;
-}
-
-.progress-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.progress-text {
-  font-size: 14px;
-  color: #666;
-  white-space: nowrap;
 }
 
 /* 知识图谱样式 */

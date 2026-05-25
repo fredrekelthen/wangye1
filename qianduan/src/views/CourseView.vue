@@ -17,8 +17,8 @@
         <!-- 公告 -->
         <CourseNotice v-if="activeTab === 'notice'" />
         
-        <!-- 分组 -->
-        <CourseGroup v-if="activeTab === 'group'" />
+        <!-- 测试 -->
+        <CourseTest v-if="activeTab === 'test'" />
         
         <!-- 成绩单 -->
         <CourseGrade v-if="activeTab === 'grade'" />
@@ -36,7 +36,7 @@ import CourseTree from '@/components/course/CourseTree.vue'
 import CourseContent from '@/components/course/CourseContent.vue'
 import CourseDiscuss from '@/components/course/CourseDiscuss.vue'
 import CourseNotice from '@/components/course/CourseNotice.vue'
-import CourseGroup from '@/components/course/CourseGroup.vue'
+import CourseTest from '@/components/course/CourseTest.vue'
 import CourseGrade from '@/components/course/CourseGrade.vue'
 
 const router = useRouter();

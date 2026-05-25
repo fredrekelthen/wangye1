@@ -6,19 +6,14 @@ import { ref } from 'vue'
 let globalLoginUser: any = null
 
 export const useUserLogin = defineStore('counter', () => {
-  // 初始化时从 localStorage 读取用户信息
+  // 初始化时从 localStorage 读取用户信息（但不自动认为已登录）
   const storedUserInfo = localStorage.getItem('userInfo')
   
-  // 解析存储的用户信息，同时同步到全局变量
-  let initialUser: any = { userName: '未登录' }
-  if (storedUserInfo) {
-    try {
-      initialUser = JSON.parse(storedUserInfo)
-      globalLoginUser = initialUser
-    } catch (e) {
-      console.error('[Store] localStorage 解析失败:', e)
-    }
-  }
+  // 默认状态为未登录
+  const initialUser: any = { userName: '未登录' }
+  
+  // 注意：这里不再自动从 localStorage 恢复用户状态
+  // 会话验证将在应用启动时通过 fetchLoginUser 进行
   
   const loginUser = ref<any>(initialUser)
 
@@ -37,9 +32,15 @@ export const useUserLogin = defineStore('counter', () => {
         localStorage.setItem('userInfo', JSON.stringify(userData))
         
         console.log('[Store] fetchLoginUser 成功:', userData.userAccount, 'id:', userData.id)
+      } else {
+        // 后端会话失效，清除本地存储的用户信息
+        console.log('[Store] 后端会话失效，清除本地状态')
+        clearLoginUser()
       }
     } catch (error) {
       console.error('[Store] 获取用户信息失败:', error)
+      // 请求失败也清除本地状态（可能是未登录或网络问题）
+      clearLoginUser()
     }
   }
 

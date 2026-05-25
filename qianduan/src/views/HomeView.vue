@@ -110,8 +110,8 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const navigateToCourse = () => router.push('/course');
 const openChat = () => {
-  const tryClick = () => { const b = document.getElementById('dify-chatbot-bubble-button'); if (b) return b.click(), true; return false };
-  if (!tryClick()) setTimeout(tryClick, 500);
+  const event = new CustomEvent('openAgentChat');
+  window.dispatchEvent(event);
 };
 </script>
 

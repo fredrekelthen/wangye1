@@ -1,117 +1,277 @@
 <template>
   <div id="material-manage">
     <a-card title="资料管理" class="manage-card">
-      <!-- 操作按钮 -->
-      <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center;">
-        <a-button type="primary" @click="showAddModal">
-          <template #icon><PlusOutlined /></template> 添加资料
-        </a-button>
-        <span style="color: #666;">选择对应的学习内容后，为该内容添加新的学习资料</span>
+      <!-- 统计信息 -->
+      <div class="stats-row">
+        <a-row :gutter="16">
+          <a-col :span="6">
+            <a-statistic title="总资料数" :value="stats.totalMaterials" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
+              <template #suffix>
+                <FileTextOutlined />
+              </template>
+            </a-statistic>
+          </a-col>
+          <a-col :span="6">
+            <a-statistic title="文档块数" :value="stats.totalChunks" style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); padding: 20px; border-radius: 12px; color: white;">
+              <template #suffix>
+                <ClusterOutlined />
+              </template>
+            </a-statistic>
+          </a-col>
+          <a-col :span="6">
+            <a-statistic title="已索引" :value="indexedCount" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); padding: 20px; border-radius: 12px; color: white;">
+              <template #suffix>
+                <CheckCircleOutlined />
+              </template>
+            </a-statistic>
+          </a-col>
+          <a-col :span="6">
+            <a-statistic title="待处理" :value="pendingCount" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 20px; border-radius: 12px; color: #333;">
+              <template #suffix>
+                <ClockCircleOutlined />
+              </template>
+            </a-statistic>
+          </a-col>
+        </a-row>
       </div>
 
-      <!-- 统计信息 -->
-      <a-row :gutter="16" style="margin-bottom: 20px;">
-        <a-col :span="8">
-          <a-statistic title="总章节数" :value="statistics.totalChapters" style="background: #f0f2f5; padding: 16px; border-radius: 8px;" />
-        </a-col>
-        <a-col :span="8">
-          <a-statistic title="总资料数" :value="statistics.totalMaterials" style="background: #f0f2f5; padding: 16px; border-radius: 8px;" />
-        </a-col>
-        <a-col :span="8">
-          <a-statistic title="总小节数" :value="statistics.totalSections" style="background: #f0f2f5; padding: 16px; border-radius: 8px;" />
-        </a-col>
-      </a-row>
+      <!-- 操作按钮 -->
+      <div class="action-bar">
+        <div class="left-actions">
+          <a-button type="primary" @click="showUploadModal = true">
+            <template #icon><UploadOutlined /></template>
+            上传资料
+          </a-button>
+          <a-button @click="fetchMaterials">
+            <template #icon><ReloadOutlined /></template>
+            刷新列表
+          </a-button>
+        </div>
+        <div class="right-actions">
+          <a-input-search
+            v-model:value="searchKeyword"
+            placeholder="搜索资料..."
+            style="width: 300px"
+            @search="handleSearch"
+          />
+        </div>
+      </div>
 
-      <!-- 按章节展示的资料列表 -->
-      <a-collapse v-model:activeKey="activeKeys" accordion>
-        <a-collapse-panel
-          v-for="(chapter, index) in materials"
-          :key="index"
-          :header="chapter.title || chapter.chapterTitle"
-        >
-          <template #extra>
-            <a-tag color="blue">{{ chapter.sections?.length || 0 }} 节</a-tag>
-          </template>
+      <!-- 资料列表 -->
+      <a-tabs v-model:activeKey="activeTab">
+        <a-tab-pane key="all" tab="全部资料">
+          <a-table
+            :columns="columns"
+            :data-source="filteredMaterials"
+            :pagination="{ pageSize: 10 }"
+            :loading="loading"
+            :row-key="(record) => record.id"
+          >
+            <template #bodyCell="{ column, record }">
+              <template v-if="column.key === 'fileType'">
+                <a-tag :color="getFileTypeColor(record.fileType)">
+                  {{ getFileTypeLabel(record.fileType) }}
+                </a-tag>
+              </template>
+              <template v-else-if="column.key === 'chapterNumber'">
+                {{ record.chapterNumber ? '第' + record.chapterNumber + '章' : '未分类' }}
+              </template>
+              <template v-else-if="column.key === 'isIndexed'">
+                <a-badge v-if="record.isIndexed" status="success" text="已索引" />
+                <a-badge v-else status="processing" text="处理中..." />
+              </template>
+              <template v-else-if="column.key === 'action'">
+                <a-space>
+                  <a-button type="link" size="small" @click="viewMaterial(record)">查看</a-button>
+                  <a-button type="link" size="small" @click="generateContent(record)">
+                    <RocketOutlined /> 生成内容
+                  </a-button>
+                  <a-popconfirm title="确定删除该资料？" @confirm="deleteMaterial(record.id)">
+                    <a-button type="link" danger size="small">删除</a-button>
+                  </a-popconfirm>
+                </a-space>
+              </template>
+            </template>
+          </a-table>
+        </a-tab-pane>
 
-          <div class="chapter-content">
-            <h4>描述</h4>
-            <p>{{ chapter.description || '暂无描述' }}</p>
+        <a-tab-pane key="byChapter" tab="按章节分组">
+          <a-collapse v-model:activeKey="chapterActiveKey">
+            <a-collapse-panel
+              v-for="(materials, chapter) in materialsByChapter"
+              :key="chapter"
+              :header="'第 ' + chapter + ' 章 (' + materials.length + ' 个资料)'"
+            >
+              <template #extra>
+                <a-space>
+                  <a-button size="small" type="primary" @click.stop="generateChapterContent(chapter)">
+                    <RocketOutlined /> 生成章节内容
+                  </a-button>
+                </a-space>
+              </template>
 
-            <!-- 小节/学习内容列表 -->
-            <a-collapse v-if="chapter.sections && chapter.sections.length > 0">
-              <a-collapse-panel
-                v-for="(section, sIndex) in chapter.sections"
-                :key="sIndex"
-                :header="section.title || section.sectionTitle"
+              <a-table
+                :columns="columns"
+                :data-source="materials"
+                :pagination="false"
+                size="small"
+                :row-key="(record) => record.id"
               >
-                <template #extra>
-                  <a-tag>{{ section.subsections?.length || section.materials?.length || 0 }} 小节</a-tag>
-                </template>
-
-                <!-- 资料表格 -->
-                <a-table
-                  v-if="section.subsections && section.subsections.length > 0"
-                  :columns="subsectionColumns"
-                  :data-source="section.subsections"
-                  :pagination="false"
-                  size="small"
-                  row-key="id"
-                >
-                  <template #bodyCell="{ column, record }">
-                    <template v-if="column.key === 'action'">
-                      <a-button type="link" size="small">查看</a-button>
-                      <a-popconfirm title="确定删除该资料？" @confirm="handleDeleteMaterial(record.id)">
+                <template #bodyCell="{ column, record }">
+                  <template v-if="column.key === 'fileType'">
+                    <a-tag :color="getFileTypeColor(record.fileType)">
+                      {{ getFileTypeLabel(record.fileType) }}
+                    </a-tag>
+                  </template>
+                  <template v-else-if="column.key === 'isIndexed'">
+                    <a-badge v-if="record.isIndexed" status="success" text="已索引" />
+                    <a-badge v-else status="processing" text="处理中..." />
+                  </template>
+                  <template v-else-if="column.key === 'action'">
+                    <a-space>
+                      <a-button type="link" size="small" @click="viewMaterial(record)">查看</a-button>
+                      <a-button type="link" size="small" @click="generateContent(record)">
+                        <RocketOutlined /> 生成
+                      </a-button>
+                      <a-popconfirm title="确定删除？" @confirm="deleteMaterial(record.id)">
                         <a-button type="link" danger size="small">删除</a-button>
                       </a-popconfirm>
-                    </template>
+                    </a-space>
                   </template>
-                </a-table>
+                </template>
+              </a-table>
+            </a-collapse-panel>
+          </a-collapse>
 
-                <a-empty v-else description="暂无资料" />
-              </a-collapse-panel>
-            </a-collapse>
+          <a-empty v-if="Object.keys(materialsByChapter).length === 0 && !loading" description="暂无资料" />
+        </a-tab-pane>
+      </a-tabs>
 
-            <a-empty v-else description="暂无小节" />
-          </div>
-        </a-collapse-panel>
-      </a-collapse>
-
-      <a-empty v-if="!loading && materials.length === 0" description="暂无课程资料" />
       <a-spin v-if="loading" tip="加载中..." />
     </a-card>
 
-    <!-- 添加资料弹窗 -->
-    <a-modal v-model:open="addModalVisible" title="添加学习资料" @ok="handleAddMaterial" ok-text="确认添加" cancel-text="取消" width="600px">
-      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
-        <a-form-item label="所属章节" required>
-          <a-select v-model:value="newMaterial.chapterIndex" placeholder="请选择章节" @change="onChapterChange">
-            <a-select-option v-for="(ch, idx) in materials" :key="idx" :value="idx">{{ ch.title || ch.chapterTitle }}</a-select-option>
-          </a-select>
-        </a-form-item>
-        <a-form-item label="学习内容" required>
-          <a-select v-model:value="newMaterial.sectionIndex" placeholder="请先选择章节" :disabled="newMaterial.chapterIndex === null || newMaterial.chapterIndex === undefined">
-            <a-select-option v-for="(sec, idx) in currentSections" :key="idx" :value="idx">{{ sec.title || sec.sectionTitle }}</a-select-option>
-          </a-select>
-        </a-form-item>
+    <!-- 上传资料弹窗 -->
+    <a-modal
+      v-model:open="showUploadModal"
+      title="上传学习资料"
+      width="600px"
+      :footer="null"
+    >
+      <a-form :model="uploadForm" layout="vertical">
         <a-form-item label="资料标题" required>
-          <a-input v-model:value="newMaterial.title" placeholder="请输入资料标题" />
+          <a-input v-model:value="uploadForm.title" placeholder="请输入资料标题" />
         </a-form-item>
-        <a-form-item label="资料类型" required>
-          <a-radio-group v-model:value="newMaterial.type">
-            <a-radio value="text">文本内容</a-radio>
-            <a-radio value="video">视频链接</a-radio>
-            <a-radio value="pdf">PDF文档</a-radio>
-            <a-radio value="image">图片</a-radio>
-          </a-radio-group>
+
+        <a-form-item label="所属章节" required>
+          <a-input-number v-model:value="uploadForm.chapterNumber" :min="1" :max="20" placeholder="章节号" style="width: 100%" />
         </a-form-item>
-        <a-form-item label="资料内容" required>
-          <a-textarea v-if="newMaterial.type === 'text'" v-model:value="newMaterial.content" placeholder="请输入文本内容" :rows="4" />
-          <a-input v-else v-model:value="newMaterial.content" :placeholder="'请输入' + (newMaterial.type === 'video' ? '视频链接' : newMaterial.type === 'pdf' ? 'PDF地址' : '图片地址')" />
+
+        <a-form-item label="资料描述">
+          <a-textarea v-model:value="uploadForm.description" :rows="3" placeholder="请输入资料描述（可选）" />
         </a-form-item>
-        <a-form-item label="描述">
-          <a-textarea v-model:value="newMaterial.description" placeholder="请输入资料描述（可选）" :rows="2" />
+
+        <a-form-item label="上传文件" required>
+          <a-upload
+            :before-upload="beforeUpload"
+            :file-list="fileList"
+            accept=".pdf,.docx,.doc,.txt,.md"
+            @remove="handleRemove"
+          >
+            <a-button>
+              <UploadOutlined /> 选择文件
+            </a-button>
+          </a-upload>
+          <div class="upload-hint">
+            <span>支持 PDF、Word (.docx/.doc)、TXT、Markdown 格式</span>
+            <span>文件大小不超过 10MB</span>
+          </div>
+        </a-form-item>
+
+        <a-form-item>
+          <a-space>
+            <a-button type="primary" :loading="uploading" @click="handleUpload">
+              {{ uploading ? '上传中...' : '开始上传' }}
+            </a-button>
+            <a-button @click="cancelUpload">取消</a-button>
+          </a-space>
         </a-form-item>
       </a-form>
+    </a-modal>
+
+    <!-- 查看资料弹窗 -->
+    <a-modal
+      v-model:open="showViewModal"
+      :title="currentMaterial?.title"
+      width="700px"
+      :footer="null"
+    >
+      <div v-if="currentMaterial" class="material-detail">
+        <a-descriptions bordered :column="2">
+          <a-descriptions-item label="文件名">{{ currentMaterial.fileName }}</a-descriptions-item>
+          <a-descriptions-item label="文件类型">
+            <a-tag :color="getFileTypeColor(currentMaterial.fileType)">
+              {{ getFileTypeLabel(currentMaterial.fileType) }}
+            </a-tag>
+          </a-descriptions-item>
+          <a-descriptions-item label="所属章节">{{ currentMaterial.chapterNumber ? '第' + currentMaterial.chapterNumber + '章' : '未分类' }}</a-descriptions-item>
+          <a-descriptions-item label="上传者">{{ currentMaterial.uploadedBy || '管理员' }}</a-descriptions-item>
+          <a-descriptions-item label="上传时间">{{ formatDate(currentMaterial.uploadedAt) }}</a-descriptions-item>
+          <a-descriptions-item label="索引状态">
+            <a-badge v-if="currentMaterial.isIndexed" status="success" text="已建立索引" />
+            <a-badge v-else status="processing" text="处理中" />
+          </a-descriptions-item>
+        </a-descriptions>
+
+        <div v-if="currentMaterial.description" class="material-desc">
+          <h4>资料描述</h4>
+          <p>{{ currentMaterial.description }}</p>
+        </div>
+
+        <div class="material-actions">
+          <a-space>
+            <a-button type="primary" @click="generateContent(currentMaterial)">
+              <RocketOutlined /> 基于此资料生成学习内容
+            </a-button>
+            <a-button @click="showViewModal = false">关闭</a-button>
+          </a-space>
+        </div>
+      </div>
+    </a-modal>
+
+    <!-- 生成内容弹窗 -->
+    <a-modal
+      v-model:open="showGenerateModal"
+      title="AI 生成学习内容"
+      width="800px"
+      :footer="null"
+    >
+      <div class="generate-content">
+        <a-spin v-if="generating" tip="正在基于知识库生成学习内容..." />
+
+        <div v-if="!generating && generatedContent" class="generated-result">
+          <a-alert type="success" message="学习内容生成成功！" style="margin-bottom: 16px" />
+
+          <div class="content-section">
+            <h4>📚 学习内容</h4>
+            <div class="content-body" v-html="renderMarkdown(generatedContent)"></div>
+          </div>
+
+          <div class="action-buttons">
+            <a-button type="primary" @click="copyContent">
+              <CopyOutlined /> 复制内容
+            </a-button>
+            <a-button @click="showGenerateModal = false">关闭</a-button>
+          </div>
+        </div>
+
+        <div v-if="!generating && !generatedContent" class="generate-placeholder">
+          <RocketOutlined class="rocket-icon" />
+          <p>点击下方按钮，基于已上传的资料生成学习内容</p>
+          <a-button type="primary" size="large" @click="startGeneration">
+            <RocketOutlined /> 开始生成
+          </a-button>
+        </div>
+      </div>
     </a-modal>
   </div>
 </template>
@@ -119,187 +279,316 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { PlusOutlined } from '@ant-design/icons-vue'
+import {
+  UploadOutlined,
+  ReloadOutlined,
+  FileTextOutlined,
+  ClusterOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  RocketOutlined,
+  CopyOutlined,
+} from '@ant-design/icons-vue'
 import myAxios from '@/request'
 
 const loading = ref(false)
+const uploading = ref(false)
+const generating = ref(false)
+const showUploadModal = ref(false)
+const showViewModal = ref(false)
+const showGenerateModal = ref(false)
+const activeTab = ref('all')
+const chapterActiveKey = ref(['1'])
+const searchKeyword = ref('')
+
 const materials = ref<any[]>([])
-const activeKeys = ref<string[]>(['0'])
-const addModalVisible = ref(false)
-
-// 新增资料表单数据
-const newMaterial = reactive({
-  chapterIndex: null as number | null,
-  sectionIndex: null as number | null,
-  title: '',
-  type: 'text',
-  content: '',
-  description: '',
-})
-
-// 当前选中章节的小节列表
-const currentSections = computed(() => {
-  if (newMaterial.chapterIndex === null || newMaterial.chapterIndex === undefined) return []
-  const chapter = materials.value[newMaterial.chapterIndex]
-  return chapter?.sections || []
-})
-
-const statistics = reactive({
-  totalChapters: 0,
+const materialsByChapter = ref<Record<number, any[]>>({})
+const stats = ref({
   totalMaterials: 0,
-  totalSections: 0,
+  totalChunks: 0,
+  averageChunksPerMaterial: 0
+})
+const currentMaterial = ref<any>(null)
+const generatedContent = ref('')
+
+const uploadForm = reactive({
+  title: '',
+  description: '',
+  chapterNumber: null as number | null,
+  file: null as File | null
 })
 
-const subsectionColumns = [
-  {
-    title: '标题',
-    dataIndex: 'title',
-    key: 'title',
-    ellipsis: true,
-  },
-  {
-    title: '类型',
-    dataIndex: 'type',
-    key: 'type',
-    width: 100,
-  },
-  {
-    title: '状态',
-    dataIndex: 'status',
-    key: 'status',
-    width: 80,
-  },
-  {
-    title: '操作',
-    key: 'action',
-    width: 150,
-  },
+const fileList = ref<any[]>([])
+
+const columns = [
+  { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
+  { title: '类型', dataIndex: 'fileType', key: 'fileType', width: 100 },
+  { title: '章节', dataIndex: 'chapterNumber', key: 'chapterNumber', width: 100 },
+  { title: '索引状态', dataIndex: 'isIndexed', key: 'isIndexed', width: 120 },
+  { title: '上传时间', dataIndex: 'uploadedAt', key: 'uploadedAt', width: 180 },
+  { title: '操作', key: 'action', width: 200 }
 ]
 
-// 获取课程资料
+const filteredMaterials = computed(() => {
+  if (!searchKeyword.value) return materials.value
+  return materials.value.filter(m =>
+    m.title?.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
+    m.description?.toLowerCase().includes(searchKeyword.value.toLowerCase())
+  )
+})
+
+const indexedCount = computed(() => materials.value.filter(m => m.isIndexed).length)
+const pendingCount = computed(() => materials.value.filter(m => !m.isIndexed).length)
+
+const getFileTypeColor = (type: string) => ({
+  pdf: 'red',
+  docx: 'blue',
+  doc: 'blue',
+  txt: 'green',
+  md: 'orange'
+}[type] || 'default')
+
+const getFileTypeLabel = (type: string) => ({
+  pdf: 'PDF',
+  docx: 'Word',
+  doc: 'Word',
+  txt: 'TXT',
+  md: 'Markdown'
+}[type] || type)
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '-'
+  return new Date(dateStr).toLocaleString('zh-CN')
+}
+
 const fetchMaterials = async () => {
   loading.value = true
   try {
-    const res = await myAxios.get('/api/admin/materials-grouped')
-    if (res.data.code === 0) {
-      const courseData = res.data.data
-
-      if (courseData.chapters) {
-        materials.value = courseData.chapters
-        calculateStatistics(courseData.chapters)
-      } else if (Array.isArray(courseData)) {
-        materials.value = courseData
-        calculateStatistics(courseData)
-      }
+    const res = await myAxios.get('/api/materials/list')
+    if (res.data && res.data.success) {
+      materials.value = res.data.materials || []
+      organizeByChapter()
     } else {
-      message.error(res.data.message || '获取资料列表失败')
+      materials.value = []
     }
   } catch (error) {
     console.error('获取资料列表失败:', error)
-    message.error('获取资料列表失败')
+    materials.value = []
   } finally {
     loading.value = false
   }
 }
 
-// 计算统计数据
-const calculateStatistics = (chapters: any[]) => {
-  let sections = 0
-  let subsections = 0
-
-  chapters.forEach((chapter) => {
-    if (chapter.sections) {
-      sections += chapter.sections.length
-      chapter.sections.forEach((section: any) => {
-        if (section.subsections) {
-          subsections += section.subsections.length
-        }
-      })
+const fetchStats = async () => {
+  try {
+    const res = await myAxios.get('/api/materials/stats')
+    if (res.data && res.data.success) {
+      stats.value = res.data.stats
     }
+  } catch (error) {
+    console.error('获取统计信息失败:', error)
+    // 即使出错也设置默认值
+    stats.value = {
+      totalMaterials: 0,
+      totalChunks: 0,
+      averageChunksPerMaterial: 0
+    }
+  }
+}
+
+const organizeByChapter = () => {
+  const organized: Record<number, any[]> = {}
+  materials.value.forEach(material => {
+    const chapter = material.chapterNumber || 0
+    if (!organized[chapter]) {
+      organized[chapter] = []
+    }
+    organized[chapter].push(material)
   })
-
-  statistics.totalChapters = chapters.length
-  statistics.totalSections = sections + subsections
-  statistics.totalMaterials = subsections
+  materialsByChapter.value = organized
+  chapterActiveKey.value = Object.keys(organized).length > 0 ? [Object.keys(organized)[0]] : []
 }
 
-// 显示添加资料弹窗
-const showAddModal = () => {
-  newMaterial.chapterIndex = null
-  newMaterial.sectionIndex = null
-  newMaterial.title = ''
-  newMaterial.type = 'text'
-  newMaterial.content = ''
-  newMaterial.description = ''
-  addModalVisible.value = true
-}
+const beforeUpload = (file: File) => {
+  const isValidType = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword', 'text/plain', 'text/markdown'].includes(file.type) ||
+    file.name.endsWith('.pdf') || file.name.endsWith('.docx') || file.name.endsWith('.doc') ||
+    file.name.endsWith('.txt') || file.name.endsWith('.md')
 
-// 章节变更时清空小节选择
-const onChapterChange = () => {
-  newMaterial.sectionIndex = null
-}
-
-// 添加资料
-const handleAddMaterial = async () => {
-  // 验证表单
-  if (newMaterial.chapterIndex === null || newMaterial.chapterIndex === undefined) {
-    message.warning('请选择所属章节')
-    return
+  if (!isValidType) {
+    message.error('只支持 PDF、Word、TXT、Markdown 格式文件')
+    return false
   }
-  if (newMaterial.sectionIndex === null || newMaterial.sectionIndex === undefined) {
-    message.warning('请选择学习内容')
-    return
+
+  const isLt10M = file.size / 1024 / 1024 < 10
+  if (!isLt10M) {
+    message.error('文件大小不能超过 10MB')
+    return false
   }
-  if (!newMaterial.title) {
+
+  uploadForm.file = file
+  fileList.value = [file as any]
+
+  // 自动填充标题
+  if (!uploadForm.title) {
+    uploadForm.title = file.name.replace(/\.[^/.]+$/, '')
+  }
+
+  return false // 阻止自动上传
+}
+
+const handleRemove = () => {
+  uploadForm.file = null
+  fileList.value = []
+}
+
+const handleUpload = async () => {
+  if (!uploadForm.title) {
     message.warning('请输入资料标题')
     return
   }
-  if (!newMaterial.content) {
-    message.warning('请输入资料内容')
+  if (!uploadForm.file) {
+    message.warning('请选择要上传的文件')
+    return
+  }
+  if (!uploadForm.chapterNumber) {
+    message.warning('请选择所属章节')
     return
   }
 
+  uploading.value = true
+
+  const formData = new FormData()
+  formData.append('file', uploadForm.file)
+  formData.append('title', uploadForm.title)
+  formData.append('description', uploadForm.description)
+  formData.append('chapterNumber', String(uploadForm.chapterNumber))
+  formData.append('uploadedBy', 'admin')
+
   try {
-    const res = await myAxios.post('/api/admin/material', {
-      chapterIndex: newMaterial.chapterIndex,
-      sectionIndex: newMaterial.sectionIndex,
-      title: newMaterial.title,
-      type: newMaterial.type,
-      content: newMaterial.content,
-      description: newMaterial.description,
+    const res = await myAxios.post('/api/materials/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
     })
 
-    if (res.data.code === 0) {
-      message.success('添加成功')
-      addModalVisible.value = false
+    if (res.data.success) {
+      message.success(res.data.message || '资料上传成功')
+      cancelUpload()
       fetchMaterials()
+      fetchStats()
     } else {
-      message.error(res.data.message || '添加失败')
+      message.error(res.data.message || '上传失败')
     }
   } catch (error) {
-    console.error('添加资料失败:', error)
-    message.error('添加资料失败')
+    console.error('上传失败:', error)
+    message.error('上传失败，请重试')
+  } finally {
+    uploading.value = false
   }
 }
 
-// 删除资料
-const handleDeleteMaterial = async (materialId: string) => {
+const cancelUpload = () => {
+  showUploadModal.value = false
+  uploadForm.title = ''
+  uploadForm.description = ''
+  uploadForm.chapterNumber = null
+  uploadForm.file = null
+  fileList.value = []
+}
+
+const viewMaterial = (material: any) => {
+  currentMaterial.value = material
+  showViewModal.value = true
+}
+
+const deleteMaterial = async (id: string) => {
   try {
-    const res = await myAxios.delete(`/api/admin/material/${materialId}`)
-    if (res.data.code === 0) {
+    const res = await myAxios.delete(`/api/materials/${id}`)
+    if (res.data.success) {
       message.success('删除成功')
       fetchMaterials()
+      fetchStats()
     } else {
       message.error(res.data.message || '删除失败')
     }
   } catch (error) {
-    console.error('删除资料失败:', error)
-    message.error('删除资料失败')
+    console.error('删除失败:', error)
+    message.error('删除失败')
   }
+}
+
+const handleSearch = (value: string) => {
+  searchKeyword.value = value
+}
+
+const generateContent = async (material: any) => {
+  currentMaterial.value = material
+  generatedContent.value = ''
+  showGenerateModal.value = true
+}
+
+const generateChapterContent = async (chapter: number) => {
+  try {
+    const res = await myAxios.get(`/api/materials/generate-content/${chapter}`)
+    if (res.data.success) {
+      generatedContent.value = `基于第 ${chapter} 章的资料，正在生成学习内容...\n\n请稍候...`
+      showGenerateModal.value = true
+      message.info('正在生成学习内容，请稍候...')
+    } else {
+      message.warning(res.data.message || '该章节暂无资料')
+    }
+  } catch (error) {
+    console.error('生成内容失败:', error)
+    message.error('生成失败')
+  }
+}
+
+const startGeneration = async () => {
+  if (!currentMaterial.value) {
+    message.warning('请先选择一个资料')
+    return
+  }
+
+  generating.value = true
+
+  try {
+    const res = await myAxios.post('/api/materials/query', {
+      question: `请基于已上传的资料，生成第${currentMaterial.value.chapterNumber}章的完整学习内容，包括：1. 章节概述 2. 核心知识点 3. 重点难点 4. 学习建议 5. 相关习题`
+    })
+
+    if (res.data.success) {
+      generatedContent.value = res.data.answer
+    } else {
+      generatedContent.value = '抱歉，无法生成学习内容，请确保知识库中有相关资料。'
+    }
+  } catch (error) {
+    console.error('生成失败:', error)
+    generatedContent.value = '生成过程中出现错误，请重试。'
+  } finally {
+    generating.value = false
+  }
+}
+
+const copyContent = () => {
+  if (generatedContent.value) {
+    navigator.clipboard.writeText(generatedContent.value)
+    message.success('内容已复制到剪贴板')
+  }
+}
+
+const renderMarkdown = (content: string) => {
+  // 简单的Markdown渲染
+  return content
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+    .replace(/\*(.*)\*/gim, '<em>$1</em>')
+    .replace(/\n/gim, '<br>')
 }
 
 onMounted(() => {
   fetchMaterials()
+  fetchStats()
 })
 </script>
 
@@ -311,17 +600,119 @@ onMounted(() => {
 }
 
 .manage-card {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
 }
 
-.chapter-content h4 {
-  margin-bottom: 8px;
+.stats-row {
+  margin-bottom: 24px;
+}
+
+.action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.left-actions,
+.right-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.upload-hint {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #999;
+}
+
+.material-detail {
+  padding: 10px 0;
+}
+
+.material-desc {
+  margin-top: 20px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.material-desc h4 {
+  margin: 0 0 8px 0;
   color: #333;
-  font-size: 14px;
 }
 
-.chapter-content p {
+.material-desc p {
+  margin: 0;
   color: #666;
-  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.material-actions {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.generate-content {
+  min-height: 400px;
+}
+
+.generate-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: #999;
+}
+
+.rocket-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  color: #667eea;
+}
+
+.content-section {
+  margin-top: 20px;
+}
+
+.content-section h4 {
+  margin: 0 0 12px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.content-body {
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  line-height: 1.8;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.action-buttons {
+  margin-top: 20px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.generated-result {
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

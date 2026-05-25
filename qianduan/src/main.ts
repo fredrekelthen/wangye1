@@ -51,4 +51,16 @@ window.addEventListener('unhandledrejection', (e) => {
 
 const pinia = createPinia()
 
-createApp(App).use(pinia).use(Antd).use(router).mount('#app')
+const app = createApp(App).use(pinia).use(Antd).use(router)
+
+// 应用启动时验证后端会话
+app.mount('#app').$nextTick(async () => {
+  try {
+    const { useUserLogin } = await import('./store/useUesrLogin')
+    const userStore = useUserLogin()
+    await userStore.fetchLoginUser()
+    console.log('[Main] 会话验证完成')
+  } catch (error) {
+    console.error('[Main] 会话验证失败:', error)
+  }
+})
