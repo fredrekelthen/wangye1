@@ -4,7 +4,6 @@
       <h3 class="section-title">{{ currentView === 'graph' ? '知识图谱' : '学习内容' }}</h3>
       <div class="header-actions">
         <a-button
-          v-if="currentView !== 'materials'"
           type="primary"
           size="small"
           @click="switchView"
@@ -22,20 +21,32 @@
       ref="knowledgeGraphRef"
     />
 
-    <!-- 当前选中课程的资料 -->
-    <div v-if="selectedCourse" class="selected-course-material">
+    <!-- 当前选中单元的资料 -->
+    <div v-if="currentView === 'materials' && selectedCourse" class="selected-course-material">
       <div class="course-info">
         <div class="course-path">
-          <strong>{{ selectedCourse.chapter }}</strong>
-          <span class="separator">/</span>
-          <strong>{{ selectedCourse.lesson }}</strong>
+          <strong>{{ selectedCourse.chapterTitle }}</strong>
+          <template v-if="selectedCourse.lessonTitle">
+            <span class="separator">/</span>
+            <strong>{{ selectedCourse.lessonTitle }}</strong>
+          </template>
+          <template v-if="selectedCourse.subsectionTitle">
+            <span class="separator">/</span>
+            <strong>{{ selectedCourse.subsectionTitle }}</strong>
+          </template>
         </div>
         <div v-if="courseMaterials.length > 0" class="material-count">
-          该课程共有 <strong>{{ courseMaterials.length }}</strong> 个资料
+          该小节共有 <strong>{{ courseMaterials.length }}</strong> 个资料
         </div>
         <div v-else class="material-count">
-          该课程暂无上传资料
+          该小节暂无上传资料
         </div>
+      </div>
+
+      <!-- 小节介绍 -->
+      <div v-if="selectedCourse.subsectionTitle" class="lesson-intro">
+        <h4 class="lesson-intro-title">{{ selectedCourse.subsectionTitle }}</h4>
+        <p class="lesson-intro-desc">{{ selectedCourse.description || '暂无介绍内容' }}</p>
       </div>
 
       <!-- 视频播放器 -->
@@ -126,7 +137,7 @@
     </div>
 
     <!-- 默认提示：未选择课程时显示 -->
-    <div v-if="!selectedCourse" class="no-course-selected">
+    <div v-if="currentView === 'materials' && !selectedCourse" class="no-course-selected">
       <a-empty description="请从左侧课程树选择要学习的章节" />
     </div>
   </div>
@@ -136,14 +147,21 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { message } from 'ant-design-vue';
 import KnowledgeGraph from './KnowledgeGraph.vue';
+import myAxios from '@/request';
 
 // 视图状态: 'graph' - 知识图谱, 'materials' - 课程资料
 const currentView = ref<'graph' | 'materials'>('graph');
 const selectedChapterId = ref<number | undefined>(undefined);
 const knowledgeGraphRef = ref<InstanceType<typeof KnowledgeGraph> | null>(null);
 
-// 当前选中的课程
-const selectedCourse = ref<{ chapter: string; lesson: string } | null>(null);
+// 当前选中的学习单元：章 -> 节 -> （可选）小节
+interface LessonSelection {
+  chapterTitle: string;
+  lessonTitle: string;
+  subsectionTitle?: string;
+  description?: string;
+}
+const selectedCourse = ref<LessonSelection | null>(null);
 
 // 当前播放的视频
 const currentVideo = ref<any>(null);
@@ -154,24 +172,45 @@ const currentDocx = ref<any>(null);
 // 视频元素引用
 const videoRef = ref<HTMLVideoElement | null>(null);
 
-// 已上传的资料
+// 学习资料（统一归一化：{id,fileName,type,fileUrl,chapter,lesson,fileSize}）
 const uploadedMaterials = ref<any[]>([]);
 
-// 加载已上传的资料
-const loadUploadedMaterials = () => {
+const normalizeMaterials = (list: any[]) => (list || []).map((m: any) => ({
+  id: m.id || m._id,
+  fileName: m.fileName,
+  fileType: m.fileType,
+  type: m.materialType || m.fileType || m.type,
+  chapter: m.chapterTitle ?? m.chapter,
+  lesson: m.lessonTitle ?? m.lesson,
+  fileUrl: m.filePath || m.fileUrl,
+  fileSize: m.fileSize,
+}));
+
+// 加载学习资料：优先后端资料库（真实、最新），失败时回退 localStorage 缓存
+const loadUploadedMaterials = async () => {
+  try {
+    const res = await myAxios.get('/api/materials/list');
+    if (res.data?.success) {
+      uploadedMaterials.value = normalizeMaterials(res.data.materials);
+      return;
+    }
+  } catch (e) {
+    // 后端不可用，回退本地缓存
+  }
   const stored = localStorage.getItem('uploadedMaterials');
-  if (stored) {
-    uploadedMaterials.value = JSON.parse(stored);
+  try {
+    uploadedMaterials.value = stored ? normalizeMaterials(JSON.parse(stored)) : [];
+  } catch {
+    uploadedMaterials.value = [];
   }
 };
 
-// 当前课程的资料
+// 当前选中单元的资料（按 章 + 节 匹配；资料粒度在“节”一级）
 const courseMaterials = computed(() => {
   if (!selectedCourse.value) return [];
-
-  return uploadedMaterials.value.filter(
-    m => m.chapter === selectedCourse.value!.chapter &&
-         m.lesson === selectedCourse.value!.lesson
+  return uploadedMaterials.value.filter(m =>
+    m.chapter === selectedCourse.value!.chapterTitle &&
+    (!selectedCourse.value!.lessonTitle || m.lesson === selectedCourse.value!.lessonTitle)
   );
 });
 
@@ -306,8 +345,8 @@ const handleGraphNodeClick = (nodeData: any) => {
   } else if (nodeData.type === 'lesson') {
     // 点击课程节点，显示该课程的资料
     selectedCourse.value = {
-      chapter: nodeData.chapter,
-      lesson: nodeData.lesson
+      chapterTitle: nodeData.chapter || '',
+      lessonTitle: nodeData.lesson || '',
     };
     loadUploadedMaterials();
     currentView.value = 'materials';
@@ -328,12 +367,27 @@ const switchView = () => {
   }
 };
 
-// 监听课程选中事件（来自 CourseTree）
+// 监听课程选中事件（来自知识图谱节点点击：chapter=章标题, lesson=节标题）
 const handleCourseSelected = (e: any) => {
-  selectedCourse.value = e.detail;
+  const d = e.detail || {};
+  selectedCourse.value = {
+    chapterTitle: d.chapter || '',
+    lessonTitle: d.lesson || '',
+  };
   loadUploadedMaterials();
-  
-  // 自动切换到资料视图
+  currentView.value = 'materials';
+};
+
+// 监听小节选中事件（来自 CourseTree 点击小节：关闭图谱，展示介绍与资料）
+const handleSubsectionSelected = (e: any) => {
+  const d = e.detail || {};
+  selectedCourse.value = {
+    chapterTitle: d.chapter || '',
+    lessonTitle: d.section || '',
+    subsectionTitle: d.subsection || '',
+    description: d.description || '',
+  };
+  loadUploadedMaterials();
   currentView.value = 'materials';
 };
 
@@ -355,12 +409,14 @@ const handleChapterSelected = (e: any) => {
 onMounted(() => {
   loadUploadedMaterials();
   window.addEventListener('course-selected', handleCourseSelected);
+  window.addEventListener('subsection-selected', handleSubsectionSelected);
   window.addEventListener('chapter-selected', handleChapterSelected);
 });
 
 // 组件卸载时移除监听
 onUnmounted(() => {
   window.removeEventListener('course-selected', handleCourseSelected);
+  window.removeEventListener('subsection-selected', handleSubsectionSelected);
   window.removeEventListener('chapter-selected', handleChapterSelected);
 });
 </script>
@@ -439,6 +495,30 @@ onUnmounted(() => {
 .material-count {
   font-size: 14px;
   color: #666;
+}
+
+/* 小节介绍 */
+.lesson-intro {
+  background: #f0f7ff;
+  border: 1px solid #d6e9ff;
+  border-left: 4px solid #1890ff;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.lesson-intro-title {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.lesson-intro-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #334155;
 }
 
 /* 视频播放器样式 */

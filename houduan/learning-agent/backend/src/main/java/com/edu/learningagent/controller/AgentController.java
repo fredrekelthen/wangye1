@@ -2,7 +2,7 @@ package com.edu.learningagent.controller;
 
 import com.edu.learningagent.service.AgentService;
 import com.edu.learningagent.service.DatabaseService;
-import com.edu.learningagent.service.GlmApiService;
+import com.edu.learningagent.service.DeepSeekApiService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +22,7 @@ public class AgentController {
     private DatabaseService databaseService;
 
     @Autowired
-    private GlmApiService glmApiService;
+    private DeepSeekApiService deepSeekApiService;
 
     @GetMapping("/project/structure")
     public ResponseEntity<Map<String, Object>> getProjectStructure() {
@@ -127,7 +127,7 @@ public class AgentController {
             String projectContext = agentService.getProjectContext();
             String fullPrompt = prompt + "\n\n项目上下文:\n" + projectContext;
             
-            String response = glmApiService.chat(fullPrompt);
+            String response = deepSeekApiService.chat(fullPrompt);
             return ResponseEntity.ok(Map.of("data", response));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));

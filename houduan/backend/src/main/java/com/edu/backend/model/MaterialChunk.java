@@ -26,6 +26,10 @@ public class MaterialChunk {
     
     // 向量嵌入
     private List<Float> embedding; // 向量表示
+
+    private String embeddingModel; // 生成向量的模型名称（如 embedding-3），防止不同模型向量混排
+    
+    private String indexStatus; // 索引状态：READY / PENDING（embedding失败时标记为PENDING等待重试）
     
     private Integer tokenCount; // token数量
     
@@ -102,6 +106,22 @@ public class MaterialChunk {
     
     public void setEmbedding(List<Float> embedding) {
         this.embedding = embedding;
+    }
+
+    public String getEmbeddingModel() {
+        return embeddingModel;
+    }
+
+    public void setEmbeddingModel(String embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
+
+    public String getIndexStatus() {
+        return indexStatus;
+    }
+
+    public void setIndexStatus(String indexStatus) {
+        this.indexStatus = indexStatus;
     }
     
     public Integer getTokenCount() {

@@ -9,6 +9,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import org.springframework.beans.factory.annotation.Value;
+
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -28,12 +32,19 @@ public class DataInitializer implements CommandLineRunner {
         private UserRepository userRepository;
 
         /**
-         * 密码加密盐值
-         */
-        private static final String SALT = "edu_platform_salt";
+     * 密码加密盐值
+     */
+    private static final String SALT = "edu_platform_salt";
+
+    @Value("${ADMIN_INIT_PASSWORD:123456789}")
+    private String adminInitPassword;
 
         @Override
         public void run(String... args) {
+                // 弱口令告警：生产环境必须覆盖默认管理员口令
+                if ("123456789".equals(adminInitPassword)) {
+                        log.warn("检测到默认管理员口令，生产环境请通过 ADMIN_INIT_PASSWORD 环境变量覆盖！");
+                }
                 // 初始化管理员账号
                 initAdminUser();
 
@@ -332,25 +343,46 @@ public class DataInitializer implements CommandLineRunner {
                 // 检查管理员账号是否已存在
                 if (userRepository.existsByUserAccount("admin")) {
                         log.info("管理员账号已存在，跳过初始化");
-                        return;
+                } else {
+                        log.info("开始初始化管理员账号...");
+
+                        // 创建管理员账号
+                        User admin = new User();
+                        admin.setUserAccount("admin");
+                        admin.setUserPassword(new BCryptPasswordEncoder().encode(adminInitPassword));
+                        admin.setPlanetCode("admin001");
+                        admin.setRole("ADMIN"); // 管理员角色
+                        admin.setUserStatus(0); // 0-正常
+                        admin.setUserName("系统管理员");
+                        admin.setCreateTime(new Date());
+                        admin.setUpdateTime(new Date());
+
+                        // 保存管理员
+                        userRepository.save(admin);
+                        log.info("管理员账号初始化完成：admin");
                 }
 
-                log.info("开始初始化管理员账号...");
+                // 初始化测试学生账号
+                if (userRepository.existsByUserAccount("yangli")) {
+                        log.info("测试学生账号已存在，跳过初始化");
+                } else {
+                        log.info("开始初始化测试学生账号...");
 
-                // 创建管理员账号
-                User admin = new User();
-                admin.setUserAccount("admin");
-                admin.setUserPassword(encryptPassword("123456789"));
-                admin.setPlanetCode("admin001");
-                admin.setRole("ADMIN"); // 管理员角色
-                admin.setUserStatus(0); // 0-正常
-                admin.setUserName("系统管理员");
-                admin.setCreateTime(new Date());
-                admin.setUpdateTime(new Date());
+                        // 创建测试学生账号
+                        User student = new User();
+                        student.setUserAccount("yangli");
+                        student.setUserPassword(new BCryptPasswordEncoder().encode(adminInitPassword));
+                        student.setPlanetCode("student001");
+                        student.setRole("USER"); // 学生角色
+                        student.setUserStatus(0); // 0-正常
+                        student.setUserName("杨丽");
+                        student.setCreateTime(new Date());
+                        student.setUpdateTime(new Date());
 
-                // 保存管理员
-                userRepository.save(admin);
-                log.info("管理员账号初始化完成：admin / 123456789");
+                        // 保存测试学生
+                        userRepository.save(student);
+                        log.info("测试学生账号初始化完成：yangli");
+                }
         }
 
         /**

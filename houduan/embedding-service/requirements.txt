@@ -1,0 +1,5 @@
+# 本地 Embedding 服务依赖
+# fastembed 基于 ONNX Runtime，不需要 PyTorch，体积小、启动快
+fastembed>=0.4
+Flask>=2.0
+numpy>=1.21

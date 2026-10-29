@@ -6,10 +6,12 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import org.bson.Document;
 import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+@Slf4j
 @Service
 public class DatabaseService {
 
@@ -20,7 +22,7 @@ public class DatabaseService {
         try {
             return MongoClients.create(mongoUri);
         } catch (Exception e) {
-            System.err.println("MongoDB连接失败: " + e.getMessage());
+            log.warn("MongoDB连接失败: {}", e.getMessage());
             return null;
         }
     }

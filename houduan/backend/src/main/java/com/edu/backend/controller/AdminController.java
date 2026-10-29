@@ -5,6 +5,7 @@ import com.edu.backend.model.entity.CourseStructure;
 import com.edu.backend.model.entity.User;
 import com.edu.backend.repository.CourseRepository;
 import com.edu.backend.repository.UserRepository;
+import com.edu.backend.security.SecurityUtils;
 import com.edu.backend.service.AdminService;
 import com.edu.backend.utils.BaseResponse;
 import com.edu.backend.utils.ResultUtils;
@@ -46,6 +47,10 @@ public class AdminController {
      * 检查管理员权限
      */
     private void checkAdminPermission(String userId) {
+        // JWT 已带 ADMIN 角色，直接放行
+        if (SecurityUtils.isJwtAdmin()) {
+            return;
+        }
         if (userId == null || userId.isEmpty()) {
             throw new RuntimeException("用户未登录，请先登录");
         }
@@ -68,7 +73,7 @@ public class AdminController {
     @GetMapping("/users")
     public BaseResponse<Object> getAllUsers(UserQueryRequest userQueryRequest, HttpServletRequest request) {
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
+            String userId = SecurityUtils.getCurrentUserId(request);
             // 检查管理员权限
             checkAdminPermission(userId);
 
@@ -88,7 +93,7 @@ public class AdminController {
             HttpServletRequest request
     ) {
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
+            String userId = SecurityUtils.getCurrentUserId(request);
             // 检查管理员权限
             checkAdminPermission(userId);
 
@@ -127,7 +132,7 @@ public class AdminController {
             HttpServletRequest request
     ) {
         try {
-            String adminId = (String) request.getSession().getAttribute("userId");
+            String adminId = SecurityUtils.getCurrentUserId(request);
             checkAdminPermission(adminId);
 
             User user = userRepository.findById(userId).orElse(null);
@@ -154,7 +159,7 @@ public class AdminController {
     @DeleteMapping("/user/{userId}")
     public BaseResponse<Boolean> deleteUser(@PathVariable String userId, HttpServletRequest request) {
         try {
-            String adminId = (String) request.getSession().getAttribute("userId");
+            String adminId = SecurityUtils.getCurrentUserId(request);
             checkAdminPermission(adminId);
 
             User user = userRepository.findById(userId).orElse(null);
@@ -190,7 +195,7 @@ public class AdminController {
             HttpServletRequest request
     ) {
         try {
-            String adminId = (String) request.getSession().getAttribute("userId");
+            String adminId = SecurityUtils.getCurrentUserId(request);
             checkAdminPermission(adminId);
 
             int chapterIndex = (Integer) body.getOrDefault("chapterIndex", 0);
@@ -260,7 +265,7 @@ public class AdminController {
     @DeleteMapping("/material/{materialId}")
     public BaseResponse<Boolean> deleteMaterial(@PathVariable String materialId, HttpServletRequest request) {
         try {
-            String adminId = (String) request.getSession().getAttribute("userId");
+            String adminId = SecurityUtils.getCurrentUserId(request);
             checkAdminPermission(adminId);
 
             List<CourseStructure> courses = courseRepository.findAll(Sort.by(Sort.Direction.ASC, "createTime"));
@@ -299,7 +304,7 @@ public class AdminController {
     @GetMapping("/statistics")
     public BaseResponse<Map<String, Object>> getStatistics(HttpServletRequest request) {
         try {
-            String adminId = (String) request.getSession().getAttribute("userId");
+            String adminId = SecurityUtils.getCurrentUserId(request);
             checkAdminPermission(adminId);
 
             long totalUsers = userRepository.count();

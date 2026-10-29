@@ -101,6 +101,7 @@ export const useUserLogin = defineStore('counter', () => {
     loginUser.value = { userName: '未登录' }
     globalLoginUser = null
     localStorage.removeItem('userInfo')
+    localStorage.removeItem('token')
     console.log('[Store] 已清除登录状态')
   }
 
@@ -118,13 +119,18 @@ export const useUserLogin = defineStore('counter', () => {
     return null
   }
 
+  function setToken(token: string) {
+    localStorage.setItem('token', token)
+  }
+
   return {
     loginUser,
     globalLoginUser: () => globalLoginUser, // 暴露只读访问
     getRawUser,
     fetchLoginUser,
     setLoginUser,
-    clearLoginUser
+    clearLoginUser,
+    setToken
   }
 })
 

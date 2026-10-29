@@ -19,6 +19,7 @@ dist/
 build/
 
 # Local env files
+.env
 .env.local
 .env.*.local
 
@@ -49,3 +50,22 @@ Thumbs.db
 cookie.txt
 cookie2.txt
 12.txt
+
+# 敏感信息（本地密钥，切勿提交）
+secrets.bat
+**/secrets.bat
+
+# 工具/临时目录
+.trae/
+.workbuddy/
+.pdf_extract/
+
+# 运行时产物（用户上传、缓存等）
+houduan/backend/uploads/
+**/uploads/
+
+# 大体积资料（论文/教材/题库数据，按需提交）
+# *.pdf
+# data/
+# 电路分析基础/
+# "电磁场与电磁波（第4版）(1)/"

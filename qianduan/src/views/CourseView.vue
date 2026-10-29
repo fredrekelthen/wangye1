@@ -22,14 +22,17 @@
         
         <!-- 成绩单 -->
         <CourseGrade v-if="activeTab === 'grade'" />
+
+        <!-- 电磁仿真 -->
+        <CourseEmulation v-if="activeTab === 'emulation'" />
       </section>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import CourseHeader from '@/components/course/CourseHeader.vue'
 import CourseTabs from '@/components/course/CourseTabs.vue'
 import CourseTree from '@/components/course/CourseTree.vue'
@@ -38,8 +41,10 @@ import CourseDiscuss from '@/components/course/CourseDiscuss.vue'
 import CourseNotice from '@/components/course/CourseNotice.vue'
 import CourseTest from '@/components/course/CourseTest.vue'
 import CourseGrade from '@/components/course/CourseGrade.vue'
+import CourseEmulation from '@/components/course/CourseEmulation.vue'
 
 const router = useRouter();
+const route = useRoute();
 const activeTab = ref('content');
 
 const handleTabChange = (tabKey: string) => {
@@ -49,9 +54,17 @@ const handleTabChange = (tabKey: string) => {
 };
 
 onMounted(() => {
-  const q = (router.currentRoute.value.query.tab as string) || localStorage.getItem('courseActiveTab') || 'content';
+  const q = (route.query.tab as string) || localStorage.getItem('courseActiveTab') || 'content';
   activeTab.value = q;
-  router.replace({ path: router.currentRoute.value.path, query: { tab: q } });
+  router.replace({ path: route.path, query: { ...route.query, tab: q } });
+});
+
+// 页面内通过 router.push 切换 tab（如知识图谱跳转到仿真页）时同步页签
+watch(() => route.query.tab, (tab) => {
+  if (typeof tab === 'string' && tab && tab !== activeTab.value) {
+    activeTab.value = tab;
+    localStorage.setItem('courseActiveTab', tab);
+  }
 });
 </script>
 
@@ -62,4 +75,3 @@ onMounted(() => {
 .course-content{flex:1;background:#fff;border:1px solid #e6e6e6;padding:20px;border-radius:4px;min-height:420px;transition:all 0.3s}
 .course-content.full-width{flex:1;background:#fff;border:1px solid #e6e6e6;padding:20px;border-radius:4px;min-height:420px}
 </style>
-

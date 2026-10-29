@@ -142,7 +142,10 @@ const handleLogin = async (values: any) => {
     const res = await userLogin(values)
 
     if (res.data.code === 0 && res.data.data) {
-      const userData = res.data.data
+      const { token, user: userData } = res.data.data
+      if (!userData || !userData.id) {
+        return message.error('登录响应异常')
+      }
       const userRole = userData.role || userData.userRole
 
       if (loginType.value === 'admin' && userRole !== 'ADMIN') {
@@ -150,6 +153,11 @@ const handleLogin = async (values: any) => {
       }
       if (loginType.value === 'student' && userRole === 'ADMIN') {
         return message.error('管理员账号请使用管理员登录')
+      }
+
+      // 保存 JWT token
+      if (token) {
+        userStore.setToken(token)
       }
 
       // ========== 第一步：写入 Store（三重保障）==========
@@ -179,6 +187,11 @@ const handleLogin = async (values: any) => {
 
       await nextTick()
       router.push({ path: '/', replace: true })
+
+      // 首次登录弹出新手引导
+      if (!localStorage.getItem('onboardingDone')) {
+        window.dispatchEvent(new CustomEvent('open-onboarding'))
+      }
     } else {
       message.error('登录失败，请检查账号或密码')
     }

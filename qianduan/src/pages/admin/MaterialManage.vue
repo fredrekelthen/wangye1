@@ -5,14 +5,14 @@
       <div class="stats-row">
         <a-row :gutter="16">
           <a-col :span="6">
-            <a-statistic title="总资料数" :value="stats.totalMaterials" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
+            <a-statistic title="总资料数" :value="displayStats.totalMaterials" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; color: white;">
               <template #suffix>
                 <FileTextOutlined />
               </template>
             </a-statistic>
           </a-col>
           <a-col :span="6">
-            <a-statistic title="文档块数" :value="stats.totalChunks" style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); padding: 20px; border-radius: 12px; color: white;">
+            <a-statistic title="文档块数" :value="displayStats.totalChunks" style="background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); padding: 20px; border-radius: 12px; color: white;">
               <template #suffix>
                 <ClusterOutlined />
               </template>
@@ -60,6 +60,13 @@
       <!-- 资料列表 -->
       <a-tabs v-model:activeKey="activeTab">
         <a-tab-pane key="all" tab="全部资料">
+          <a-alert
+            v-if="filteredMaterials.length > 0 && filteredMaterials.some(m => m.id?.startsWith('example'))"
+            message="以下为样例数据，实际数据需要后端支持"
+            type="info"
+            show-icon
+            style="margin-bottom: 16px"
+          />
           <a-table
             :columns="columns"
             :data-source="filteredMaterials"
@@ -68,7 +75,11 @@
             :row-key="(record) => record.id"
           >
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'fileType'">
+              <template v-if="column.key === 'isExample'">
+                <a-tag v-if="record.id?.startsWith('example')" color="green">样例</a-tag>
+                <span v-else>-</span>
+              </template>
+              <template v-else-if="column.key === 'fileType'">
                 <a-tag :color="getFileTypeColor(record.fileType)">
                   {{ getFileTypeLabel(record.fileType) }}
                 </a-tag>
@@ -158,16 +169,45 @@
       :footer="null"
     >
       <a-form :model="uploadForm" layout="vertical">
-        <a-form-item label="资料标题" required>
-          <a-input v-model:value="uploadForm.title" placeholder="请输入资料标题" />
+        <a-form-item label="资料标题">
+          <a-input v-model:value="uploadForm.title" placeholder="可选，留空则自动使用文件名" />
         </a-form-item>
 
         <a-form-item label="所属章节" required>
-          <a-input-number v-model:value="uploadForm.chapterNumber" :min="1" :max="20" placeholder="章节号" style="width: 100%" />
-        </a-form-item>
-
-        <a-form-item label="资料描述">
-          <a-textarea v-model:value="uploadForm.description" :rows="3" placeholder="请输入资料描述（可选）" />
+          <div class="selector-col">
+            <a-select
+              v-model:value="selectedChapterId"
+              :options="chapterOptions"
+              :field-names="{ label: 'title', value: 'id' }"
+              placeholder="选择章"
+              style="width: 100%"
+              show-search
+              :filter-option="filterSelectOption"
+              @change="onChapterChange"
+            />
+            <a-select
+              v-model:value="selectedSectionId"
+              :options="sectionOptions"
+              :field-names="{ label: 'title', value: 'id' }"
+              placeholder="选择节（可选）"
+              style="width: 100%"
+              show-search
+              :filter-option="filterSelectOption"
+              :disabled="!selectedChapterId"
+              @change="onSectionChange"
+            />
+            <a-select
+              v-model:value="selectedSubsectionId"
+              :options="subsectionOptions"
+              :field-names="{ label: 'title', value: 'id' }"
+              placeholder="选择三级标题（可选）"
+              style="width: 100%"
+              show-search
+              :filter-option="filterSelectOption"
+              :disabled="!selectedSectionId"
+              @change="onSubsectionChange"
+            />
+          </div>
         </a-form-item>
 
         <a-form-item label="上传文件" required>
@@ -213,7 +253,10 @@
               {{ getFileTypeLabel(currentMaterial.fileType) }}
             </a-tag>
           </a-descriptions-item>
-          <a-descriptions-item label="所属章节">{{ currentMaterial.chapterNumber ? '第' + currentMaterial.chapterNumber + '章' : '未分类' }}</a-descriptions-item>
+          <a-descriptions-item label="所属章节">
+            {{ currentMaterial.chapterNumber ? '第' + currentMaterial.chapterNumber + '章' : '未分类' }}
+            <template v-if="currentMaterial.sectionTitle"> / {{ currentMaterial.sectionTitle }}</template>
+          </a-descriptions-item>
           <a-descriptions-item label="上传者">{{ currentMaterial.uploadedBy || '管理员' }}</a-descriptions-item>
           <a-descriptions-item label="上传时间">{{ formatDate(currentMaterial.uploadedAt) }}</a-descriptions-item>
           <a-descriptions-item label="索引状态">
@@ -290,6 +333,7 @@ import {
   CopyOutlined,
 } from '@ant-design/icons-vue'
 import myAxios from '@/request'
+import { courseKnowledgeStructure } from '@/data/knowledgeGraphData'
 
 const loading = ref(false)
 const uploading = ref(false)
@@ -301,6 +345,14 @@ const activeTab = ref('all')
 const chapterActiveKey = ref(['1'])
 const searchKeyword = ref('')
 
+const exampleMaterials = [
+  { id: 'example-1', title: '矢量分析基础知识', fileType: 'pdf', chapterNumber: 1, description: '包含标量场与矢量场的基础概念', isIndexed: true, uploadedAt: '2025-05-01', uploadedBy: '管理员' },
+  { id: 'example-2', title: '直角坐标系详解', fileType: 'docx', chapterNumber: 1, description: '深入讲解直角坐标系的应用', isIndexed: true, uploadedAt: '2025-05-05', uploadedBy: '管理员' },
+  { id: 'example-3', title: '梯度与散度学习笔记', fileType: 'docx', chapterNumber: 1, description: '梯度、散度的定义与计算方法', isIndexed: true, uploadedAt: '2025-05-10', uploadedBy: '管理员' },
+  { id: 'example-4', title: '库仑定律课件', fileType: 'ppt', chapterNumber: 2, description: '第二章静电场课件PPT', isIndexed: true, uploadedAt: '2025-05-15', uploadedBy: '管理员' },
+  { id: 'example-5', title: '电场强度视频教程', fileType: 'mp4', chapterNumber: 2, description: '电场强度相关概念的视频讲解', isIndexed: false, uploadedAt: '2025-05-20', uploadedBy: '管理员' },
+]
+
 const materials = ref<any[]>([])
 const materialsByChapter = ref<Record<number, any[]>>({})
 const stats = ref({
@@ -308,13 +360,84 @@ const stats = ref({
   totalChunks: 0,
   averageChunksPerMaterial: 0
 })
+
+const displayStats = computed(() => {
+  if (materials.value.length > 0) {
+    return stats.value
+  }
+  return {
+    totalMaterials: exampleMaterials.length,
+    totalChunks: exampleMaterials.length * 3,
+    averageChunksPerMaterial: 3
+  }
+})
 const currentMaterial = ref<any>(null)
 const generatedContent = ref('')
 
+// 章节/小节下拉数据源：与课程内容目录（knowledgeGraphData）保持一致
+const chapterOptions = computed(() => [
+  ...courseKnowledgeStructure.chapters.map((c: any) => ({
+    id: c.id,
+    title: c.title,
+    chapterNumber: Number((c.id || '').replace('chapter-', '')) || 0,
+    sections: (c.sections || []).map((s: any) => ({
+      id: s.id,
+      title: s.title,
+      subsections: s.subsections || []
+    }))
+  })),
+  // 附录A 不在课程内容目录内，但知识库资料中存在，单独补充
+  { id: 'chapter-0', title: '附录A 矢量基本运算公式', chapterNumber: 0, sections: [] }
+])
+
+const selectedChapterId = ref<string>('')
+const selectedSectionId = ref<string>('')
+const selectedSubsectionId = ref<string>('')
+
+const sectionOptions = computed(() => {
+  const ch = chapterOptions.value.find((c: any) => c.id === selectedChapterId.value)
+  return ch ? ch.sections.map((s: any) => ({ id: s.id, title: s.title })) : []
+})
+
+const subsectionOptions = computed(() => {
+  const ch = chapterOptions.value.find((c: any) => c.id === selectedChapterId.value)
+  const sec = ch?.sections.find((s: any) => s.id === selectedSectionId.value)
+  return sec ? (sec.subsections || []).map((ss: any) => ({ id: ss.id, title: ss.title })) : []
+})
+
+const onChapterChange = () => {
+  selectedSectionId.value = ''
+  selectedSubsectionId.value = ''
+  const ch = chapterOptions.value.find((c: any) => c.id === selectedChapterId.value)
+  uploadForm.chapterNumber = ch ? ch.chapterNumber : null
+  uploadForm.sectionTitle = ''
+  uploadForm.subsectionTitle = ''
+}
+
+const onSectionChange = () => {
+  selectedSubsectionId.value = ''
+  const ch = chapterOptions.value.find((c: any) => c.id === selectedChapterId.value)
+  const sec = ch?.sections.find((s: any) => s.id === selectedSectionId.value)
+  uploadForm.sectionTitle = sec ? sec.title : ''
+  uploadForm.subsectionTitle = ''
+}
+
+const onSubsectionChange = () => {
+  const ch = chapterOptions.value.find((c: any) => c.id === selectedChapterId.value)
+  const sec = ch?.sections.find((s: any) => s.id === selectedSectionId.value)
+  const sub = sec?.subsections.find((ss: any) => ss.id === selectedSubsectionId.value)
+  uploadForm.subsectionTitle = sub ? sub.title : ''
+}
+
+// 下拉搜索：按标题过滤
+const filterSelectOption = (input: string, option: any) =>
+  String(option?.title ?? '').toLowerCase().includes(String(input ?? '').toLowerCase())
+
 const uploadForm = reactive({
   title: '',
-  description: '',
   chapterNumber: null as number | null,
+  sectionTitle: '' as string,
+  subsectionTitle: '' as string,
   file: null as File | null
 })
 
@@ -324,17 +447,24 @@ const columns = [
   { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
   { title: '类型', dataIndex: 'fileType', key: 'fileType', width: 100 },
   { title: '章节', dataIndex: 'chapterNumber', key: 'chapterNumber', width: 100 },
+  { title: '样例', key: 'isExample', width: 80 },
   { title: '索引状态', dataIndex: 'isIndexed', key: 'isIndexed', width: 120 },
   { title: '上传时间', dataIndex: 'uploadedAt', key: 'uploadedAt', width: 180 },
   { title: '操作', key: 'action', width: 200 }
 ]
 
 const filteredMaterials = computed(() => {
-  if (!searchKeyword.value) return materials.value
-  return materials.value.filter(m =>
-    m.title?.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
-    m.description?.toLowerCase().includes(searchKeyword.value.toLowerCase())
-  )
+  const realData = searchKeyword.value 
+    ? materials.value.filter(m =>
+        m.title?.toLowerCase().includes(searchKeyword.value.toLowerCase()) ||
+        m.description?.toLowerCase().includes(searchKeyword.value.toLowerCase())
+      )
+    : materials.value
+  
+  if (realData.length === 0) {
+    return exampleMaterials
+  }
+  return realData
 })
 
 const indexedCount = computed(() => materials.value.filter(m => m.isIndexed).length)
@@ -443,10 +573,6 @@ const handleRemove = () => {
 }
 
 const handleUpload = async () => {
-  if (!uploadForm.title) {
-    message.warning('请输入资料标题')
-    return
-  }
   if (!uploadForm.file) {
     message.warning('请选择要上传的文件')
     return
@@ -460,9 +586,14 @@ const handleUpload = async () => {
 
   const formData = new FormData()
   formData.append('file', uploadForm.file)
-  formData.append('title', uploadForm.title)
-  formData.append('description', uploadForm.description)
+  formData.append('title', uploadForm.title || uploadForm.file.name.replace(/\.[^/.]+$/, ''))
   formData.append('chapterNumber', String(uploadForm.chapterNumber))
+  if (uploadForm.sectionTitle) {
+    formData.append('sectionTitle', uploadForm.sectionTitle)
+  }
+  if (uploadForm.subsectionTitle) {
+    formData.append('subsectionTitle', uploadForm.subsectionTitle)
+  }
   formData.append('uploadedBy', 'admin')
 
   try {
@@ -489,8 +620,12 @@ const handleUpload = async () => {
 const cancelUpload = () => {
   showUploadModal.value = false
   uploadForm.title = ''
-  uploadForm.description = ''
   uploadForm.chapterNumber = null
+  uploadForm.sectionTitle = ''
+  uploadForm.subsectionTitle = ''
+  selectedChapterId.value = ''
+  selectedSectionId.value = ''
+  selectedSubsectionId.value = ''
   uploadForm.file = null
   fileList.value = []
 }
@@ -548,17 +683,18 @@ const startGeneration = async () => {
     return
   }
 
+  const chapter = currentMaterial.value.chapterNumber
   generating.value = true
 
   try {
-    const res = await myAxios.post('/api/materials/query', {
-      question: `请基于已上传的资料，生成第${currentMaterial.value.chapterNumber}章的完整学习内容，包括：1. 章节概述 2. 核心知识点 3. 重点难点 4. 学习建议 5. 相关习题`
-    })
+    // 按章生成：后端拉取该章全部片段作为上下文（不走 top-K 检索），
+    // 整章内容较长，故单独放宽超时到 180s，避免沿用全局 10s 超时。
+    const res = await myAxios.post(`/api/materials/generate-chapter/${chapter}`, {}, { timeout: 180000 })
 
     if (res.data.success) {
       generatedContent.value = res.data.answer
     } else {
-      generatedContent.value = '抱歉，无法生成学习内容，请确保知识库中有相关资料。'
+      generatedContent.value = res.data.message || '抱歉，无法生成学习内容，请确保知识库中有相关资料。'
     }
   } catch (error) {
     console.error('生成失败:', error)
@@ -623,6 +759,13 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.selector-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }
 
 .upload-hint {

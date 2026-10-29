@@ -1,0 +1,18 @@
+# 生产环境配置（SPRING_PROFILES_ACTIVE=prod 时生效，叠加在 application.yml 之上）
+# 所有密钥 / 连接串均从环境变量注入，禁止在此写真实值。
+
+spring:
+    data:
+        mongodb:
+            uri: ${MONGO_URI:mongodb://localhost:27017/student_db}
+
+server:
+    port: ${SERVER_PORT:8080}
+
+llm:
+    deepseek:
+        model: ${DEEPSEEK_MODEL:deepseek-flash}
+
+logging:
+    level:
+        com.edu.backend: INFO

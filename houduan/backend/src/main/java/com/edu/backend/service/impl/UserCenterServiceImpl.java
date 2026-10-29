@@ -80,7 +80,7 @@ public class UserCenterServiceImpl implements UserCenterService {
         List<UserGrade> grades = userGradeRepository.findByUserIdOrderByExamTimeDesc(userId);
         double averageScore = 0;
         if (!grades.isEmpty()) {
-            averageScore = grades.stream().mapToInt(UserGrade::getScore).average().orElse(0);
+            averageScore = grades.stream().mapToInt(g -> g.getScore() == null ? 0 : g.getScore()).average().orElse(0);
         }
         Map<String, Object> gradeStats = new HashMap<>();
         gradeStats.put("average", Math.round(averageScore));
@@ -196,7 +196,9 @@ public class UserCenterServiceImpl implements UserCenterService {
         map.put("score", grade.getScore());
         map.put("fullScore", grade.getFullScore());
         map.put("passScore", grade.getPassScore());
-        map.put("isPassed", grade.getScore() >= grade.getPassScore());
+        Integer score = grade.getScore();
+        Integer passScore = grade.getPassScore();
+        map.put("isPassed", score != null && passScore != null && score >= passScore);
         map.put("examTime", grade.getExamTime());
         return map;
     }

@@ -1,19 +1,40 @@
 spring:
+    profiles:
+        active: ${SPRING_PROFILES_ACTIVE:dev}
     data:
         mongodb:
             uri: mongodb://localhost:27017/student_db
+    servlet:
+        multipart:
+            max-file-size: 50MB
+            max-request-size: 50MB
 
 server:
     port: 8080
 
-glm:
-    api:
-        key: a24a6536b1634e52bb40ab2db0dc775e.yl6sRRgtObXCWikK
-        url: https://open.bigmodel.cn/api/paas/v4/chat/completions
-        model: glm-4.7
+# 对话模型：DeepSeek（协议与 deepseek-harness 对齐）
+# API Key 从环境变量 DEEPSEEK_API_KEY 读取，禁止将真实密钥写入本文件（会进入版本库）
+llm:
+    deepseek:
+        api-key: ${DEEPSEEK_API_KEY:}
+        base-url: https://api.deepseek.com
+        # 成本最低的模型；复杂任务可切换为 deepseek-v4-pro
+        model: deepseek-flash
 
 agent:
     frontend:
         path: ../../qianduan
     backend:
         path: .
+
+# 电磁仿真服务（Python 实现，替代原 qigger/MATLAB 后端）
+# 启动方式：qigger/python-emulation/start.bat
+emulation:
+    python:
+        base-url: http://localhost:8081
+
+# 本地 Embedding 服务（RAG 向量化，替代 GLM embedding-3）
+# 启动方式：houduan/embedding-service/start.bat
+embedding:
+    local:
+        base-url: http://localhost:8000

@@ -1,6 +1,7 @@
 package com.edu.backend.controller;
 
 import com.edu.backend.service.UserCenterService;
+import com.edu.backend.security.SecurityUtils;
 import com.edu.backend.utils.BaseResponse;
 import com.edu.backend.utils.ResultUtils;
 import jakarta.annotation.Resource;
@@ -27,7 +28,7 @@ public class UserCenterController {
     @GetMapping("/stats")
     public BaseResponse<Map<String, Object>> getUserCenterStats(HttpServletRequest request) {
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
+            String userId = SecurityUtils.getCurrentUserId(request);
             Map<String, Object> stats = userCenterService.getUserCenterStats(userId);
             return ResultUtils.success(stats);
         } catch (Exception e) {
@@ -45,7 +46,7 @@ public class UserCenterController {
             @RequestParam(defaultValue = "7") int days
     ) {
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
+            String userId = SecurityUtils.getCurrentUserId(request);
             Map<String, Object> progress = userCenterService.getLearningProgressByDay(userId, days);
             return ResultUtils.success(progress);
         } catch (Exception e) {
@@ -63,7 +64,7 @@ public class UserCenterController {
             @RequestParam(defaultValue = "10") int limit
     ) {
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
+            String userId = SecurityUtils.getCurrentUserId(request);
             Object materials = userCenterService.getRecentMaterials(userId, limit);
             return ResultUtils.success(materials);
         } catch (Exception e) {
@@ -82,7 +83,7 @@ public class UserCenterController {
             @RequestParam(defaultValue = "10") Integer pageSize
     ) {
         try {
-            String userId = (String) request.getSession().getAttribute("userId");
+            String userId = SecurityUtils.getCurrentUserId(request);
             Object grades = userCenterService.getUserGrades(userId, pageNum, pageSize);
             return ResultUtils.success(grades);
         } catch (Exception e) {

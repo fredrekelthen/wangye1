@@ -3,6 +3,7 @@ package com.edu.backend.controller;
 import com.edu.backend.model.Material;
 import com.edu.backend.service.FileParsingService;
 import com.edu.backend.service.RAGKnowledgeBaseService;
+import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,9 +11,14 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.net.URLEncoder;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -21,6 +27,7 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/materials")
 @CrossOrigin(origins = "*")
@@ -50,6 +57,8 @@ public class MaterialController {
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "category", required = false) String category,
             @RequestParam(value = "chapterNumber", required = false) Integer chapterNumber,
+            @RequestParam(value = "sectionTitle", required = false) String sectionTitle,
+            @RequestParam(value = "subsectionTitle", required = false) String subsectionTitle,
             @RequestParam(value = "uploadedBy", required = false) String uploadedBy) {
         
         Map<String, Object> response = new HashMap<>();
@@ -68,17 +77,19 @@ public class MaterialController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            // 保存文件
-            String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+            // 一次读取字节，同时用于存盘和解析，避免重复读流
+            byte[] fileBytes = file.getBytes();
+            String originalName = file.getOriginalFilename();
+            String fileName = UUID.randomUUID().toString() + "_" + originalName;
             Path uploadPath = Paths.get(uploadDirectory);
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
             Path filePath = uploadPath.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath);
+            Files.copy(new java.io.ByteArrayInputStream(fileBytes), filePath);
             
-            // 解析文件内容
-            String content = fileParsingService.parseFile(file);
+            // 解析文件内容（传入 bytes 避免重复读流）
+            String content = fileParsingService.parseFile(fileBytes, originalName);
             
             // 创建资料对象
             Material material = new Material();
@@ -91,6 +102,8 @@ public class MaterialController {
             material.setFileSize(file.getSize());
             material.setCategory(category);
             material.setChapterNumber(chapterNumber);
+            material.setSectionTitle(sectionTitle);
+            material.setSubsectionTitle(subsectionTitle);
             material.setUploadedBy(uploadedBy != null ? uploadedBy : "admin");
             material.setUploadedAt(LocalDateTime.now());
             material.setUpdatedAt(LocalDateTime.now());
@@ -105,7 +118,7 @@ public class MaterialController {
                 try {
                     ragService.processMaterial(material, content);
                 } catch (Exception e) {
-                    System.err.println("RAG处理失败: " + e.getMessage());
+                    log.warn("RAG处理失败: {}", e.getMessage());
                 }
             }).start();
             
@@ -148,7 +161,7 @@ public class MaterialController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("获取资料列表失败", e);
             response.put("success", false);
             response.put("message", "获取资料列表失败: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
@@ -267,6 +280,53 @@ public class MaterialController {
     }
     
     /**
+     * 访问（预览/下载）资料文件。
+     * 文件存储于服务器本地磁盘（fileUrl 为物理路径），通过本接口以 HTTP 流返回，
+     * 浏览器可直接预览 PDF 或下载 Word/TXT 文件。
+     */
+    @GetMapping("/{id}/file")
+    public ResponseEntity<Resource> getMaterialFile(@PathVariable String id) {
+        try {
+            Query query = new Query(Criteria.where("id").is(id));
+            Material material = mongoTemplate.findOne(query, Material.class);
+            if (material == null || material.getFileUrl() == null) {
+                return ResponseEntity.notFound().build();
+            }
+            Path path = Paths.get(material.getFileUrl());
+            if (!Files.exists(path)) {
+                return ResponseEntity.notFound().build();
+            }
+            Resource resource = new InputStreamResource(Files.newInputStream(path));
+            String contentType = resolveContentType(material.getFileType());
+            String fileName = material.getFileName() != null ? material.getFileName() : "download";
+            String disposition = "inline; filename=\"" + URLEncoder.encode(fileName, "UTF-8") + "\"";
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, contentType)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+                    .body(resource);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    private String resolveContentType(String fileType) {
+        if (fileType == null) return "application/octet-stream";
+        switch (fileType.toLowerCase()) {
+            case "pdf":
+                return "application/pdf";
+            case "docx":
+                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+            case "doc":
+                return "application/msword";
+            case "txt":
+            case "md":
+                return "text/plain; charset=UTF-8";
+            default:
+                return "application/octet-stream";
+        }
+    }
+    
+    /**
      * 获取知识库统计信息
      */
     @GetMapping("/stats")
@@ -290,7 +350,7 @@ public class MaterialController {
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("获取资料统计失败", e);
             // 即使出错也返回默认值
             Map<String, Object> stats = new HashMap<>();
             stats.put("totalMaterials", 0);
@@ -303,6 +363,28 @@ public class MaterialController {
         }
     }
     
+    /**
+     * 重建 chunk 向量索引。
+     *
+     * @param full {@code true} = 全量重算（含由旧 embedding 模型生成的向量，
+     *             更换 embedding 模型后必须使用）；{@code false} = 仅重试 PENDING
+     */
+    @PostMapping("/reindex")
+    public ResponseEntity<Map<String, Object>> reindexPending(
+            @RequestParam(value = "full", required = false, defaultValue = "false") boolean full) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Map<String, Object> result = ragService.reindexChunks(full);
+            response.put("success", true);
+            response.put("result", result);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "重建索引失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
     /**
      * 基于知识库回答问题
      */
@@ -321,11 +403,12 @@ public class MaterialController {
             }
             
             String defaultResponse = "抱歉，我没有找到相关的资料来回答您的问题。";
-            String answer = ragService.enhancedQA(question, defaultResponse);
+            Map<String, Object> ragResult = ragService.enhancedQA(question, defaultResponse);
             
             response.put("success", true);
             response.put("question", question);
-            response.put("answer", answer);
+            response.put("answer", ragResult.get("answer"));
+            response.put("citations", ragResult.getOrDefault("citations", Collections.emptyList()));
             
             return ResponseEntity.ok(response);
             
@@ -413,6 +496,50 @@ public class MaterialController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
         }
     }
+
+    /**
+     * 按章节生成学习内容（全量召回该章所有片段后交给大模型）。
+     *
+     * <p>与 {@code POST /query} 的区别：{@code /query} 走 top-K 语义检索，只适合
+     * 精确问答；"生成整章学习内容"需要覆盖整章，故使用本接口。</p>
+     */
+    @PostMapping("/generate-chapter/{chapter}")
+    public ResponseEntity<Map<String, Object>> generateChapterStudyContent(
+            @PathVariable Integer chapter) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            Map<String, Object> generated = ragService.generateChapterStudyContent(chapter);
+
+            if (generated.get("materialCount") instanceof Integer count && count == 0) {
+                response.put("success", false);
+                response.put("message", "该章节暂无资料，请先上传资料");
+                return ResponseEntity.ok(response);
+            }
+
+            String answer = generated.get("answer") == null ? "" : generated.get("answer").toString();
+            if (answer.isBlank()) {
+                response.put("success", false);
+                response.put("message", "生成失败，请稍后重试");
+                return ResponseEntity.ok(response);
+            }
+
+            response.put("success", true);
+            response.put("chapter", chapter);
+            response.put("answer", answer);
+            response.put("materialCount", generated.get("materialCount"));
+            response.put("chunkCount", generated.get("chunkCount"));
+            response.put("citations", generated.getOrDefault("citations", Collections.emptyList()));
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "生成学习内容失败: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
     
     /**
      * 辅助方法：获取文件类型
@@ -441,6 +568,8 @@ public class MaterialController {
         map.put("fileSize", material.getFileSize());
         map.put("category", material.getCategory());
         map.put("chapterNumber", material.getChapterNumber());
+        map.put("sectionTitle", material.getSectionTitle());
+        map.put("subsectionTitle", material.getSubsectionTitle());
         map.put("uploadedBy", material.getUploadedBy());
         map.put("uploadedAt", material.getUploadedAt());
         map.put("updatedAt", material.getUpdatedAt());

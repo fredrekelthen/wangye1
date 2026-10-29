@@ -113,9 +113,10 @@ public class AdminServiceImpl implements AdminService {
 
         List<Material> allMaterials = mongoTemplate.find(query, Material.class);
 
-        // 按章节分组
+        // 按章节分组（章节标题可能为 null，用"未分类"兜底，避免 groupingBy 空键 NPE）
         Map<String, List<Material>> groupedMaterials = allMaterials.stream()
-                .collect(Collectors.groupingBy(Material::getChapterTitle));
+                .collect(Collectors.groupingBy(
+                        m -> m.getChapterTitle() == null ? "未分类" : m.getChapterTitle()));
 
         // 转换为列表格式
         List<Map<String, Object>> chapterMaterials = new ArrayList<>();
@@ -136,7 +137,8 @@ public class AdminServiceImpl implements AdminService {
         // 简单分页（按章节分组后的数量分页）
         int total = chapterMaterials.size();
         int totalPages = (int) Math.ceil((double) total / pageSize);
-        int fromIndex = (pageNum - 1) * pageSize;
+        // 钳制越界：请求超出末页时 fromIndex 可能大于 total，subList(from>to) 会抛异常
+        int fromIndex = Math.min(Math.max((pageNum - 1) * pageSize, 0), total);
         int toIndex = Math.min(fromIndex + pageSize, total);
 
         List<Map<String, Object>> pagedMaterials = chapterMaterials.subList(fromIndex, toIndex);

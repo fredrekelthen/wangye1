@@ -4,7 +4,7 @@
       <a-layout-sider v-model:collapsed="collapsed" collapsible>
         <div class="logo">
           <BookOutlined v-if="collapsed" />
-          <span v-else>学习助手</span>
+          <span v-else>电磁场智能学习助手</span>
         </div>
         <a-menu v-model:selectedKeys="selectedKeys" theme="dark" mode="inline">
           <a-menu-item key="dashboard" @click="navigateTo('/agent')">
@@ -32,7 +32,7 @@
 
       <a-layout>
         <a-layout-header style="background: #fff; padding: 0 24px">
-          <h2>项目学习助手</h2>
+          <h2>电磁场智能学习助手</h2>
         </a-layout-header>
         <a-layout-content style="margin: 16px">
           <div style="padding: 24px; background: #fff; min-height: 360px">

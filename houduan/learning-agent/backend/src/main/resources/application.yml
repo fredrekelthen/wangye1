@@ -9,11 +9,14 @@ spring:
 server:
   port: 8081
 
-glm:
-  api:
-    key: a24a6536b1634e52bb40ab2db0dc775e.yl6sRRgtObXCWikK
-    url: https://open.bigmodel.cn/api/paas/v4/chat/completions
-    model: glm-4
+# 对话模型：DeepSeek（与主后端保持一致）
+# API Key 从环境变量 DEEPSEEK_API_KEY 读取，禁止写入真实密钥（会进入版本库）
+llm:
+  deepseek:
+    api-key: ${DEEPSEEK_API_KEY:}
+    base-url: https://api.deepseek.com
+    # 成本最低的模型；复杂任务可切换为 deepseek-v4-pro
+    model: deepseek-flash
 
 agent:
   frontend:

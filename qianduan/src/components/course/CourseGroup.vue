@@ -13,6 +13,7 @@
         :key="group.id" 
         class="group-card"
       >
+        <a-tag v-if="group.isExample" color="green" style="margin-bottom: 10px">样例</a-tag>
         <div class="group-header">
           <div class="group-icon">{{ group.icon }}</div>
           <div class="group-info">
@@ -146,6 +147,7 @@ interface Group {
   tasks: number;
   discussions: number;
   isMember: boolean;
+  isExample?: boolean;
 }
 
 const iconOptions = ['📚','🎯','📊','💻','🔬','⚡','🧮','📐','🎓','💡','🏆','🌟'];
@@ -168,7 +170,8 @@ const groups = ref<Group[]>([
     ],
     tasks: 12,
     discussions: 45,
-    isMember: true
+    isMember: true,
+    isExample: true
   },
   {
     id: 2,
@@ -183,7 +186,8 @@ const groups = ref<Group[]>([
     ],
     tasks: 8,
     discussions: 23,
-    isMember: false
+    isMember: false,
+    isExample: true
   },
   {
     id: 3,
@@ -199,7 +203,8 @@ const groups = ref<Group[]>([
     ],
     tasks: 15,
     discussions: 67,
-    isMember: false
+    isMember: false,
+    isExample: true
   },
   {
     id: 4,
@@ -213,7 +218,8 @@ const groups = ref<Group[]>([
     ],
     tasks: 6,
     discussions: 18,
-    isMember: false
+    isMember: false,
+    isExample: true
   },
   {
     id: 5,
@@ -228,7 +234,8 @@ const groups = ref<Group[]>([
     ],
     tasks: 10,
     discussions: 32,
-    isMember: false
+    isMember: false,
+    isExample: true
   }
 ]);
 

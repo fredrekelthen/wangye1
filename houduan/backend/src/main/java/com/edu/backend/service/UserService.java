@@ -44,4 +44,9 @@ public interface UserService {
      * 修改用户密码（管理员功能）
      */
     Boolean updatePassword(String userId, String newPassword);
+
+    /**
+     * 用户自助修改密码（校验旧密码后更新为新密码）
+     */
+    Boolean changeSelfPassword(String userId, String oldPassword, String newPassword);
 }

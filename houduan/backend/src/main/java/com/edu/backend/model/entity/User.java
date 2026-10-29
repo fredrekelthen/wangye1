@@ -1,5 +1,6 @@
 package com.edu.backend.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -32,8 +33,10 @@ public class User {
     private String userAccount;
 
     /**
-     * 用户密码（加密存储）
+     * 用户密码（加密存储）。
+     * WRITE_ONLY：可从请求体反序列化，但绝不序列化到任何响应中，避免密码哈希外泄。
      */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String userPassword;
 
     /**

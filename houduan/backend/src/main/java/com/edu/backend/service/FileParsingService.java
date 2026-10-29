@@ -1,149 +1,125 @@
 package com.edu.backend.service;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.hwpf.extractor.WordExtractor;
+import org.apache.poi.xwpf.extractor.XWPFWordExtractor;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 @Service
 public class FileParsingService {
-    
+
+    private static final int MIN_MEANINGFUL_TEXT_LENGTH = 20;
+
     /**
-     * 解析上传的文件，返回文本内容
+     * 解析上传的文件，返回文本内容（MultipartFile 版本）
      */
     public String parseFile(MultipartFile file) throws Exception {
         String fileName = file.getOriginalFilename();
-        String content;
-        
-        if (fileName != null && fileName.toLowerCase().endsWith(".pdf")) {
-            content = parsePdf(file);
-        } else if (fileName != null && (fileName.toLowerCase().endsWith(".docx") || fileName.toLowerCase().endsWith(".doc"))) {
-            content = parseDocx(file);
-        } else if (fileName != null && fileName.toLowerCase().endsWith(".txt")) {
-            content = parseTxt(file);
-        } else if (fileName != null && fileName.toLowerCase().endsWith(".md")) {
-            content = parseMarkdown(file);
+        if (fileName == null) {
+            throw new IllegalArgumentException("文件名为空");
+        }
+        return parseFile(file.getBytes(), fileName);
+    }
+
+    /**
+     * 解析文件字节内容（byte[] 版本，避免重复读流）
+     */
+    public String parseFile(byte[] bytes, String fileName) throws Exception {
+        if (fileName == null) {
+            throw new IllegalArgumentException("文件名为空");
+        }
+        String lowerName = fileName.toLowerCase();
+
+        if (lowerName.endsWith(".pdf")) {
+            return parsePdf(bytes);
+        } else if (lowerName.endsWith(".docx")) {
+            return parseDocx(bytes);
+        } else if (lowerName.endsWith(".doc")) {
+            return parseDoc(bytes);
+        } else if (lowerName.endsWith(".txt")) {
+            return parseTxt(bytes);
+        } else if (lowerName.endsWith(".md")) {
+            return parseMarkdown(bytes);
         } else {
             throw new IllegalArgumentException("不支持的文件类型: " + fileName);
         }
-        
-        return content;
     }
-    
+
     /**
-     * 解析PDF文件（基础文本提取）
+     * 解析 PDF —— Apache PDFBox
      */
-    private String parsePdf(MultipartFile file) throws Exception {
-        // 简单的PDF文本提取（实际项目中建议使用Apache PDFBox或iText）
-        StringBuilder content = new StringBuilder();
-        ByteArrayInputStream bais = new ByteArrayInputStream(file.getBytes());
-        
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(bais, StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                // 过滤PDF控制字符，提取可读文本
-                String cleanLine = line.replaceAll("[^\\x20-\\x7E\\u4E00-\\u9FA5]", " ").trim();
-                if (!cleanLine.isEmpty()) {
-                    content.append(cleanLine).append("\n");
-                }
+    private String parsePdf(byte[] bytes) throws Exception {
+        try (PDDocument doc = Loader.loadPDF(bytes)) {
+            String text = new PDFTextStripper().getText(doc);
+            String trimmed = text != null ? text.trim() : "";
+            if (trimmed.length() < MIN_MEANINGFUL_TEXT_LENGTH) {
+                throw new IllegalArgumentException("PDF无可提取的文本层（可能是扫描件或图片型PDF），请上传包含可选文本的PDF");
             }
-        }
-        
-        // 如果上述方法提取的内容太少，尝试使用简单标记
-        if (content.length() < 100) {
-            return extractTextFromPdfStructure(file.getBytes());
-        }
-        
-        return content.toString();
-    }
-    
-    /**
-     * 从PDF结构中提取文本
-     */
-    private String extractTextFromPdfStructure(byte[] pdfBytes) {
-        StringBuilder text = new StringBuilder();
-        String content = new String(pdfBytes, StandardCharsets.ISO_8859_1);
-        
-        // 简单提取文本内容
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\\(([^)]+)\\)");
-        java.util.regex.Matcher matcher = pattern.matcher(content);
-        
-        while (matcher.find()) {
-            String match = matcher.group(1);
-            // 过滤控制字符
-            if (match.matches(".*[\\u4E00-\\u9FA5]+.*") || match.matches(".*[a-zA-Z]+.*")) {
-                text.append(match).append(" ");
+            return trimmed;
+        } catch (IOException e) {
+            if (e.getMessage() != null && e.getMessage().contains("password")) {
+                throw new IllegalArgumentException("PDF文件已加密，请解密后重新上传");
             }
+            throw new IllegalArgumentException("PDF解析失败: " + e.getMessage(), e);
         }
-        
-        return text.length() > 0 ? text.toString() : "PDF文件内容提取失败，请确保PDF包含可提取的文本层";
     }
-    
+
     /**
-     * 解析DOCX文件（基于ZIP XML结构）
+     * 解析 .docx —— Apache POI XWPF
      */
-    private String parseDocx(MultipartFile file) throws Exception {
-        StringBuilder content = new StringBuilder();
-        
-        try (ZipInputStream zis = new ZipInputStream(file.getInputStream())) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if ("word/document.xml".equals(entry.getName())) {
-                    // 读取document.xml
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    byte[] buffer = new byte[1024];
-                    int len;
-                    while ((len = zis.read(buffer)) > 0) {
-                        baos.write(buffer, 0, len);
-                    }
-                    
-                    String xmlContent = baos.toString(StandardCharsets.UTF_8.name());
-                    content.append(extractTextFromDocxXml(xmlContent));
-                }
+    private String parseDocx(byte[] bytes) throws Exception {
+        try (InputStream in = new ByteArrayInputStream(bytes);
+             XWPFDocument doc = new XWPFDocument(in);
+             XWPFWordExtractor extractor = new XWPFWordExtractor(doc)) {
+            String text = extractor.getText();
+            String trimmed = text != null ? text.trim() : "";
+            if (trimmed.length() < MIN_MEANINGFUL_TEXT_LENGTH) {
+                throw new IllegalArgumentException("DOCX文件未提取到有效文本内容");
             }
+            return trimmed;
         }
-        
-        return content.length() > 0 ? content.toString() : "DOCX文件内容提取失败";
     }
-    
+
     /**
-     * 从DOCX XML中提取文本
+     * 解析老式 .doc —— Apache POI HWPF
      */
-    private String extractTextFromDocxXml(String xml) {
-        StringBuilder text = new StringBuilder();
-        
-        // 使用简单的正则提取<w:t>标签中的文本
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<w:t[^>]*>([^<]*)</w:t>");
-        java.util.regex.Matcher matcher = pattern.matcher(xml);
-        
-        while (matcher.find()) {
-            String wText = matcher.group(1);
-            if (!wText.trim().isEmpty()) {
-                text.append(wText);
+    private String parseDoc(byte[] bytes) throws Exception {
+        try (InputStream in = new ByteArrayInputStream(bytes);
+             HWPFDocument doc = new HWPFDocument(in);
+             WordExtractor extractor = new WordExtractor(doc)) {
+            String text = extractor.getText();
+            String trimmed = text != null ? text.trim() : "";
+            if (trimmed.length() < MIN_MEANINGFUL_TEXT_LENGTH) {
+                throw new IllegalArgumentException("DOC文件未提取到有效文本内容");
             }
+            return trimmed;
         }
-        
-        return text.toString();
     }
-    
+
     /**
-     * 解析TXT文件
+     * 解析 TXT 文件
      */
-    private String parseTxt(MultipartFile file) throws Exception {
-        return new String(file.getBytes(), StandardCharsets.UTF_8);
+    private String parseTxt(byte[] bytes) throws Exception {
+        return new String(bytes, StandardCharsets.UTF_8);
     }
-    
+
     /**
-     * 解析Markdown文件
+     * 解析 Markdown 文件
      */
-    private String parseMarkdown(MultipartFile file) throws Exception {
-        // Markdown文件直接读取为文本
-        return new String(file.getBytes(), StandardCharsets.UTF_8);
+    private String parseMarkdown(byte[] bytes) throws Exception {
+        return new String(bytes, StandardCharsets.UTF_8);
     }
-    
+
     /**
      * 获取文件大小（人类可读格式）
      */
@@ -158,26 +134,26 @@ public class FileParsingService {
             return String.format("%.2f GB", bytes / (1024.0 * 1024 * 1024));
         }
     }
-    
+
     /**
      * 验证文件类型
      */
     public boolean isValidFileType(MultipartFile file) {
         String fileName = file.getOriginalFilename();
         if (fileName == null) return false;
-        
+
         String lowerName = fileName.toLowerCase();
-        return lowerName.endsWith(".pdf") || 
-               lowerName.endsWith(".docx") || 
+        return lowerName.endsWith(".pdf") ||
+               lowerName.endsWith(".docx") ||
                lowerName.endsWith(".doc") ||
                lowerName.endsWith(".txt") ||
                lowerName.endsWith(".md");
     }
-    
+
     /**
      * 验证文件大小（最大10MB）
      */
     public boolean isValidFileSize(MultipartFile file) {
-        return file.getSize() <= 10 * 1024 * 1024; // 10MB
+        return file.getSize() <= 10 * 1024 * 1024;
     }
 }

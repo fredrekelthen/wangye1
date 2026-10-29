@@ -40,6 +40,13 @@ export interface AgentChatResponse {
   data: string
   action?: string
   page?: string
+  citations?: Citation[]
+}
+
+export interface Citation {
+  materialTitle: string
+  chunkIndex: number
+  score: number
 }
 
 export const agentApi = {

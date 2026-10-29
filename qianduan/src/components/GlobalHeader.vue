@@ -7,17 +7,21 @@
           <div class="title">思政教育</div>
         </div>
       </a-col>
-      <a-col flex="auto">
+      <a-col flex="auto" class="menu-col">
         <a-menu 
+          v-if="!isMobile"
           v-model:selectedKeys="current" 
           mode="horizontal"
           :items="menuItems" 
           @click="doMenuClick"
         />
+        <a-button v-else type="text" class="mobile-menu-btn" @click="drawerVisible = true">
+          <MenuOutlined />
+        </a-button>
       </a-col>
       <a-col flex="auto" class="right-section">
         <a-button class="ai-assistant-btn" @click="openAgentChat">
-          <RobotOutlined /> AI助手
+          <RobotOutlined /> <span class="ai-text">AI助手</span>
         </a-button>
         <div class="login-status" :key="'login-' + (computedUser?.id || 'no-user')">
           <a-dropdown v-if="isUserLoggedIn">
@@ -25,13 +29,16 @@
               <a-avatar :size="32" class="user-avatar">
                 {{ (computedUser.userName || computedUser.userAccount || '用').charAt(0).toUpperCase() }}
               </a-avatar>
-              <span class="username">{{ computedUser.userName || computedUser.userAccount || '用户' }}</span>
+              <span v-if="!isMobile" class="username">{{ computedUser.userName || computedUser.userAccount || '用户' }}</span>
               <CaretDownOutlined class="dropdown-icon" />
             </div>
             <template #overlay>
               <a-menu @click="handleMenuClick">
                 <a-menu-item key="profile">
                   <UserOutlined /> 个人中心
+                </a-menu-item>
+                <a-menu-item key="change-password">
+                  <LockOutlined /> 修改密码
                 </a-menu-item>
                 <a-menu-divider />
                 <a-menu-item key="logout" style="color: #ff4d4f;">
@@ -47,22 +54,34 @@
 
     <AuthModal v-model:visible="authModalVisible" />
     <AgentChat v-model:open="agentModalVisible" />
+    <ChangePasswordModal v-model:open="changePwdVisible" />
+
+    <!-- 移动端抽屉菜单 -->
+    <a-drawer v-model:open="drawerVisible" placement="left" :width="240" :closable="false">
+      <div class="drawer-title">导航菜单</div>
+      <a-menu mode="vertical" :items="menuItems" @click="onMobileMenuClick" />
+    </a-drawer>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { h, ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { CrownOutlined, HomeOutlined, UserOutlined, CaretDownOutlined, LogoutOutlined, RobotOutlined } from '@ant-design/icons-vue'
+import { CrownOutlined, HomeOutlined, UserOutlined, CaretDownOutlined, LogoutOutlined, RobotOutlined, MenuOutlined, LockOutlined } from '@ant-design/icons-vue'
 import { useRouter } from 'vue-router'
 import { useUserLogin, getGlobalCurrentUser } from '@/store/useUesrLogin'
 import { message } from 'ant-design-vue'
 import { userLogout } from '@/api/user'
 import AuthModal from './AuthModal.vue'
 import AgentChat from './AgentChat.vue'
+import ChangePasswordModal from './ChangePasswordModal.vue'
 
 const router = useRouter()
 const authModalVisible = ref(false)
 const agentModalVisible = ref(false)
+const drawerVisible = ref(false)
+const changePwdVisible = ref(false)
+const isMobile = ref(false)
+const updateIsMobile = () => { isMobile.value = window.innerWidth < 768 }
 const userStore = useUserLogin()
 
 const computedUser = computed(() => {
@@ -96,6 +115,14 @@ watch(computedUser, (newVal) => {
 }, { immediate: true })
 
 const doMenuClick = (e:any)=> router.push(e.key)
+const onMobileMenuClick = (e: any) => {
+  drawerVisible.value = false
+  if (e.key === 'others') {
+    window.open('https://www.xuexi.cn', '_blank')
+    return
+  }
+  router.push(e.key)
+}
 const current = ref([router.currentRoute.value?.path || '/'])
 router.afterEach(to=> current.value = [to.path])
 
@@ -135,6 +162,8 @@ const menuItems = computed(() => {
 const handleMenuClick = async ({ key }: { key: string }) => {
   if (key === 'profile') {
     router.push('/user-center')
+  } else if (key === 'change-password') {
+    changePwdVisible.value = true
   } else if (key === 'logout') {
     try {
       await userLogout({})
@@ -153,12 +182,15 @@ const handleOpenAgentChat = () => {
 }
 
 onMounted(()=> {
+  updateIsMobile()
+  window.addEventListener('resize', updateIsMobile)
   window.addEventListener('user-logged-in', handleUserLoggedIn as any)
   window.addEventListener('storage', onStorage)
   window.addEventListener('openAgentChat', handleOpenAgentChat)
 })
 
 onUnmounted(()=> { 
+  window.removeEventListener('resize', updateIsMobile)
   window.removeEventListener('user-logged-in', handleUserLoggedIn as any)
   window.removeEventListener('storage', onStorage)
   window.removeEventListener('openAgentChat', handleOpenAgentChat)
@@ -287,5 +319,37 @@ onUnmounted(()=> {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+}
+
+.mobile-menu-btn {
+  color: #ffffff;
+  font-size: 20px;
+}
+
+.drawer-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+/* 移动端（<768px）收缩右侧与标题 */
+@media (max-width: 767px) {
+  #global-header {
+    padding: 0 12px;
+  }
+  .title {
+    font-size: 15px;
+    margin-left: 8px;
+  }
+  .logo {
+    height: 34px;
+  }
+  .ai-text {
+    display: none;
+  }
+  .right-section {
+    gap: 6px;
+    padding-right: 0;
+  }
 }
 </style>

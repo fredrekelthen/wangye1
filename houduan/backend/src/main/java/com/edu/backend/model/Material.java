@@ -6,7 +6,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-@Document(collection = "materials")
+@Document(collection = "rag_materials")
 public class Material {
     @Id
     private String id;
@@ -28,6 +28,10 @@ public class Material {
     private String category; // 章节分类
     
     private Integer chapterNumber;
+    
+    private String sectionTitle; // 所属小节标题（如：3.1 恒定磁场的基本定律），可选
+    
+    private String subsectionTitle; // 所属三级标题（如：3.1.1 矢量磁位），可选
     
     private String uploadedBy; // 上传者用户名
     
@@ -115,6 +119,22 @@ public class Material {
     
     public void setChapterNumber(Integer chapterNumber) {
         this.chapterNumber = chapterNumber;
+    }
+    
+    public String getSectionTitle() {
+        return sectionTitle;
+    }
+    
+    public void setSectionTitle(String sectionTitle) {
+        this.sectionTitle = sectionTitle;
+    }
+    
+    public String getSubsectionTitle() {
+        return subsectionTitle;
+    }
+    
+    public void setSubsectionTitle(String subsectionTitle) {
+        this.subsectionTitle = subsectionTitle;
     }
     
     public String getUploadedBy() {

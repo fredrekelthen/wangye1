@@ -5,10 +5,10 @@
 
 // 颜色配置
 const colors = {
-  root: '#007BFF',
-  chapter: '#00B894',
-  section: '#FF6B6B',
-  subsection: '#FFB84D'
+  root: '#1e3a5f',
+  chapter: '#3b82f6',
+  section: '#0d9488',
+  subsection: '#6366f1'
 };
 
 // 课程知识结构定义

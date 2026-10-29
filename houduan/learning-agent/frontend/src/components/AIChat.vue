@@ -1,6 +1,6 @@
 <template>
   <div class="ai-chat">
-    <a-card title="AI学习助手" style="width: 100%; height: 600px; display: flex; flex-direction: column">
+    <a-card title="电磁场智能学习助手" style="width: 100%; height: 600px; display: flex; flex-direction: column">
       <template #extra>
         <a-space>
           <a-button size="small" @click="clearHistory">清空对话</a-button>
@@ -10,7 +10,7 @@
 
       <div class="chat-container" ref="chatContainer">
         <div v-if="messages.length === 0" class="welcome-message">
-          <a-empty description="开始与AI学习助手对话吧！">
+          <a-empty description="开始与电磁场智能学习助手对话吧！">
             <template #description>
               <p>你可以问我关于项目的任何问题：</p>
               <ul>

@@ -4,7 +4,7 @@
       <!-- 账号信息 -->
       <a-row :gutter="16" class="stats-row">
         <a-col :span="8">
-          <a-statistic title="账号名称" :value="stats.userAccount || '未登录'" />
+          <a-statistic title="账号名称" :value="displayAccount" />
         </a-col>
         <a-col :span="8">
           <a-statistic
@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { message } from 'ant-design-vue'
 import { init, use } from 'echarts/core'
 import { LineChart, PieChart } from 'echarts/charts'
@@ -101,6 +101,7 @@ import {
 } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { ECharts } from 'echarts/core'
+import { useUserLogin, getGlobalCurrentUser } from '@/store/useUesrLogin'
 
 // 注册必需的组件
 use([
@@ -116,6 +117,22 @@ use([
 const stats = ref<any>({})
 const chartRef = ref<HTMLDivElement>()
 const pieChartRef = ref<HTMLDivElement>()
+
+const userStore = useUserLogin()
+
+const currentUser = computed(() => {
+  const storeUser = userStore.loginUser.value
+  if (storeUser && storeUser.id) return storeUser
+  const globalUser = getGlobalCurrentUser()
+  if (globalUser && globalUser.id) return globalUser
+  return null
+})
+
+const displayAccount = computed(() => {
+  if (stats.value.userAccount && stats.value.userAccount !== '未登录') return stats.value.userAccount
+  if (currentUser.value) return currentUser.value.userAccount || currentUser.value.userName || '已登录'
+  return '未登录'
+})
 
 const gradeColumns = [
   { title: '考试名称', dataIndex: 'examName', key: 'examName' },

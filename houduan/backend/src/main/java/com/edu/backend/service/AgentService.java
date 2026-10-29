@@ -1,5 +1,6 @@
 package com.edu.backend.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -10,6 +11,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 public class AgentService {
 
@@ -111,7 +113,7 @@ public class AgentService {
     }
 
     public void navigateToPage(String page) {
-        System.out.println("导航到页面: " + page);
+        log.info("导航到页面: " + page);
     }
 
     public String getProjectContext() {

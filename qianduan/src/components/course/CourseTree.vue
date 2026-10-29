@@ -25,23 +25,24 @@
               <li v-for="subsection in section.subsections" :key="subsection.id" class="subsection">
                 <span class="icon">📄</span>
                 <span
-                  class="label"
-                  :class="{ 'clickable': hasMaterial(chapter.title, subsection.title) }"
-                  @click="handleItemClick(chapter.title, subsection.title)"
+                  class="label clickable"
+                  @click="handleSubClick(chapter, section, subsection)"
                 >
                   {{ subsection.title }}
                 </span>
-                <span class="status unread">未读</span>
-                <a-button
-                  v-if="hasMaterial(chapter.title, subsection.title)"
-                  type="link"
-                  size="small"
-                  class="download-btn"
-                  @click.stop="handleDownload(chapter.title, subsection.title)"
-                >
-                  <download-outlined />
-                  下载
-                </a-button>
+                <template v-if="hasMaterial(chapter.id, section.title, subsection.title)">
+                  <span class="status read">已上传</span>
+                  <a-button
+                    type="link"
+                    size="small"
+                    class="download-btn"
+                    @click.stop="handleOpen(materialOf(chapter.id, section.title, subsection.title))"
+                  >
+                    <eye-outlined />
+                    查看
+                  </a-button>
+                </template>
+                <span v-else class="status unread">未读</span>
               </li>
             </ul>
           </li>
@@ -65,27 +66,57 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { message } from 'ant-design-vue'
+import { EyeOutlined } from '@ant-design/icons-vue'
 import { courseKnowledgeStructure } from '@/data/knowledgeGraphData'
+import myAxios from '@/request'
 
-const uploadedMaterials = ref([] as any[])
-const loadUploadedMaterials = () => (uploadedMaterials.value = JSON.parse(localStorage.getItem('uploadedMaterials') || '[]'))
-const hasMaterial = (c: string, l: string) => uploadedMaterials.value.some(m => m.chapter === c && m.lesson === l)
-const handleDownload = (c: string, l: string) => {
-  const m = uploadedMaterials.value.find(x => x.chapter === c && x.lesson === l)
+// 资料来源：后端真实资料库（上传后已建立 RAG 索引）
+const materials = ref([] as any[])
+const loadMaterials = async () => {
+  try {
+    const res = await myAxios.get('/api/materials/list')
+    materials.value = res.data?.success ? (res.data.materials || []) : []
+  } catch (e) {
+    materials.value = []
+  }
+}
+const chapterNumber = (chapterId: string) => Number((chapterId || '').replace('chapter-', '')) || 0
+
+// 匹配某三级标题节点下的资料（按章号 + 节标题 + 三级标题）
+const materialsAt = (chapterId: string, sectionTitle: string, subsectionTitle: string) =>
+  materials.value.filter(m =>
+    m.chapterNumber === chapterNumber(chapterId) &&
+    (!m.sectionTitle || m.sectionTitle === sectionTitle) &&
+    (!m.subsectionTitle || m.subsectionTitle === subsectionTitle)
+  )
+const hasMaterial = (chapterId: string, sectionTitle: string, subsectionTitle: string) =>
+  materialsAt(chapterId, sectionTitle, subsectionTitle).length > 0
+const materialOf = (chapterId: string, sectionTitle: string, subsectionTitle: string) =>
+  materialsAt(chapterId, sectionTitle, subsectionTitle)[0]
+
+// 点击三级节点：关闭知识图谱，展示该小节的介绍与学习资料
+const handleSubClick = (chapter: any, section: any, subsection: any) => {
+  window.dispatchEvent(new CustomEvent('subsection-selected', {
+    detail: {
+      chapterId: chapter.id,
+      chapter: chapter.title,
+      section: section.title,
+      subsection: subsection.title,
+      description: subsection.description || ''
+    }
+  }))
+}
+const handleOpen = (m: any) => {
   if (!m) return
-  const a = document.createElement('a')
-  a.href = m.fileUrl
-  a.download = m.fileName
-  a.click()
-  message.success(`开始下载：${m.fileName}`)
+  window.open('/api/materials/' + m.id + '/file', '_blank')
 }
 const handleItemClick = (c: string, l: string) => window.dispatchEvent(new CustomEvent('course-selected', { detail: { chapter: c, lesson: l } }))
 
 onMounted(() => {
-  loadUploadedMaterials()
-  window.addEventListener('material-uploaded', loadUploadedMaterials)
+  loadMaterials()
+  window.addEventListener('material-uploaded', loadMaterials)
 })
-onUnmounted(() => window.removeEventListener('material-uploaded', loadUploadedMaterials))
+onUnmounted(() => window.removeEventListener('material-uploaded', loadMaterials))
 
 // 使用 knowledgeGraphData 中的数据
 const chapters = ref(courseKnowledgeStructure.chapters)

@@ -1,7 +1,7 @@
 <template>
   <a-modal
     v-model:open="modalVisible"
-    title="🤖 AI学习助手"
+    title="🤖 电磁场智能学习助手"
     :width="700"
     :footer="null"
     @cancel="handleCancel"
@@ -9,7 +9,7 @@
     <div class="agent-chat-container">
       <div class="chat-messages" ref="messagesRef">
         <div v-if="messages.length === 0" class="welcome-message">
-          <a-empty description="你好！我是你的AI学习助手">
+          <a-empty description="你好！我是你的电磁场智能学习助手">
             <template #description>
               <p>你可以问我：</p>
               <ul>

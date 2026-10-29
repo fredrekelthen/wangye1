@@ -81,3 +81,14 @@ export const updateUserPassword = async (data: { id: string; userPassword: strin
     data,
   });
 }
+
+/**
+ * 用户自助修改密码（校验旧密码）
+ */
+export const changeSelfPassword = async (data: { oldPassword: string; newPassword: string }) => {
+  return await myAxios.request({
+    url: '/api/user/self-password',
+    method: 'PUT',
+    data,
+  });
+}

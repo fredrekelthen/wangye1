@@ -11,6 +11,9 @@
         <RouterView />
       </a-layout-content>
 
+      <!-- 首次登录新手引导 -->
+      <OnboardingGuide ref="onboardingRef" />
+
       <!-- 废弃的底部栏
       <a-layout-footer class="footer">
         <a href="https://www.xuexi.cn/" target="_blank">底部栏，暂时跳转百度</a>
@@ -21,16 +24,33 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import GlobalHeader from '@/components/GlobalHeader.vue';
+import OnboardingGuide from '@/components/OnboardingGuide.vue';
+import { useUserLogin } from '@/store/useUesrLogin';
+
+const userStore = useUserLogin();
+const onboardingRef = ref();
+
+onMounted(async () => {
+  window.addEventListener('openAuthModal', handler);
+  window.addEventListener('open-onboarding', onOpenOnboarding);
+  await userStore.fetchLoginUser();
+});
+onUnmounted(()=> {
+  window.removeEventListener('openAuthModal', handler);
+  window.removeEventListener('open-onboarding', onOpenOnboarding);
+});
 
 const handler = (e: Event) => {
   const mode = (e as CustomEvent).detail?.mode || 'login';
   localStorage.setItem('openAuthModalMode', mode);
   window.dispatchEvent(new Event('storage'));
 };
-onMounted(()=> window.addEventListener('openAuthModal', handler));
-onUnmounted(()=> window.removeEventListener('openAuthModal', handler));
+
+const onOpenOnboarding = () => {
+  (onboardingRef.value as any)?.show();
+};
 </script>
 
 <style lang="scss" scoped>

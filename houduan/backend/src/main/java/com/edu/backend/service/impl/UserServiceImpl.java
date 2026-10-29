@@ -6,6 +6,8 @@ import com.edu.backend.model.dto.UserRegisterRequest;
 import com.edu.backend.model.entity.User;
 import com.edu.backend.repository.UserRepository;
 import com.edu.backend.service.UserService;
+import com.edu.backend.exception.BusinessException;
+import com.edu.backend.model.enums.ErrorCode;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -14,6 +16,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -31,8 +34,11 @@ public class UserServiceImpl implements UserService {
     @Resource
     private MongoTemplate mongoTemplate;
 
+    /** BCrypt 密码编码器（线程安全，用于新密码哈希与校验） */
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
     /**
-     * 密码加密盐值
+     * 旧 MD5 加密盐值（仅用于存量密码兼容比对，勿用于新密码）。
      */
     private static final String SALT = "edu_platform_salt";
 
@@ -76,8 +82,8 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("编号已存在");
         }
 
-        // 5. 加密密码
-        String encryptPassword = encryptPassword(userPassword);
+        // 5. BCrypt 加密密码
+        String encryptPassword = passwordEncoder.encode(userPassword);
 
         // 6. 创建用户
         User user = new User();
@@ -113,19 +119,27 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("密码不能为空");
         }
 
-        // 2. 加密密码
-        String encryptPassword = encryptPassword(userPassword);
-
-        // 3. 查询用户
-        User user = userRepository.findByUserAccountAndUserPassword(userAccount, encryptPassword)
-                .orElse(null);
+        // 2. 按账号查询用户（密码在代码中校验，兼容存量 MD5 与 BCrypt）
+        User user = userRepository.findByUserAccount(userAccount).orElse(null);
         if (user == null) {
-            log.info("用户登录失败：账号或密码错误");
-            throw new RuntimeException("账号或密码错误");
+            log.info("用户登录失败：账号不存在");
+            throw new BusinessException(ErrorCode.USER_PASSWORD_ERROR, "账号或密码错误");
+        }
+
+        // 3. 密码校验（兼容存量 MD5，通过后透明升级为 BCrypt）
+        if (!passwordMatches(userPassword, user.getUserPassword())) {
+            log.info("用户登录失败：密码错误");
+            throw new BusinessException(ErrorCode.USER_PASSWORD_ERROR, "账号或密码错误");
+        }
+        if (user.getUserPassword() == null || !user.getUserPassword().startsWith("$2")) {
+            user.setUserPassword(passwordEncoder.encode(userPassword));
+            user.setUpdateTime(new Date());
+            userRepository.save(user);
+            log.info("用户 {} 的密码已从旧算法透明升级为 BCrypt", userAccount);
         }
 
         // 4. 检查用户状态
-        if (user.getUserStatus() == 1) {
+        if (Integer.valueOf(1).equals(user.getUserStatus())) {
             throw new RuntimeException("账号已被封禁");
         }
 
@@ -204,8 +218,7 @@ public class UserServiceImpl implements UserService {
         // 执行查询
         java.util.List<User> users = mongoTemplate.find(query, User.class);
 
-        // 管理员查看用户列表时保留密码信息（用于管理操作）
-        // users.forEach(user -> user.setUserPassword(null));
+        // 密码哈希不会外泄：User.userPassword 已标注 @JsonProperty(WRITE_ONLY)，序列化时自动剔除。
 
         // 计算总页数
         int totalPages = (int) Math.ceil((double) total / pageSize);
@@ -262,8 +275,8 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("用户不存在");
         }
 
-        // 加密新密码并保存
-        String encryptPassword = encryptPassword(newPassword);
+        // BCrypt 加密新密码并保存
+        String encryptPassword = passwordEncoder.encode(newPassword);
         user.setUserPassword(encryptPassword);
         user.setUpdateTime(new Date());
         userRepository.save(user);
@@ -273,9 +286,55 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 密码加密（简单的MD5加密，实际建议使用BCrypt）
+     * 用户自助修改密码：校验旧密码后更新为新密码（BCrypt）。
      */
-    private String encryptPassword(String password) {
+    @Override
+    public Boolean changeSelfPassword(String userId, String oldPassword, String newPassword) {
+        if (userId == null || userId.isEmpty()) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR, "用户未登录");
+        }
+        if (oldPassword == null || oldPassword.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请输入原密码");
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "新密码长度不能少于6位");
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_EXIST, "用户不存在");
+        }
+
+        // 校验旧密码（兼容存量 MD5）
+        if (!passwordMatches(oldPassword, user.getUserPassword())) {
+            throw new BusinessException(ErrorCode.USER_PASSWORD_ERROR, "原密码错误");
+        }
+
+        user.setUserPassword(passwordEncoder.encode(newPassword));
+        user.setUpdateTime(new Date());
+        userRepository.save(user);
+
+        log.info("用户 {} 自助修改密码成功", user.getUserAccount());
+        return true;
+    }
+
+    /**
+     * 校验密码是否匹配：存量密码为 MD5(明文+盐)，新密码为 BCrypt（以 {@code $2} 开头），二者均兼容。
+     */
+    private boolean passwordMatches(String rawPassword, String storedPassword) {
+        if (storedPassword == null) {
+            return false;
+        }
+        if (storedPassword.startsWith("$2")) {
+            return passwordEncoder.matches(rawPassword, storedPassword);
+        }
+        return storedPassword.equals(legacyMd5(rawPassword));
+    }
+
+    /**
+     * 旧 MD5 哈希（仅用于历史密码兼容比对，勿用于新密码）。
+     */
+    private String legacyMd5(String password) {
         try {
             java.security.MessageDigest md = java.security.MessageDigest.getInstance("MD5");
             byte[] bytes = md.digest((password + SALT).getBytes());
@@ -285,7 +344,7 @@ public class UserServiceImpl implements UserService {
             }
             return sb.toString();
         } catch (Exception e) {
-            throw new RuntimeException("密码加密失败");
+            throw new RuntimeException("密码加密失败", e);
         }
     }
 }

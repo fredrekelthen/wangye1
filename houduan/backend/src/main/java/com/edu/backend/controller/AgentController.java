@@ -1,16 +1,23 @@
 package com.edu.backend.controller;
 
+import com.edu.backend.model.entity.User;
+import com.edu.backend.repository.UserRepository;
+import com.edu.backend.security.SecurityUtils;
 import com.edu.backend.service.AgentService;
 import com.edu.backend.service.DatabaseService;
 import com.edu.backend.service.GlmApiService;
 import com.edu.backend.service.RAGKnowledgeBaseService;
+import lombok.extern.slf4j.Slf4j;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Collections;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/agent")
 @CrossOrigin(origins = "*")
@@ -27,6 +34,34 @@ public class AgentController {
 
     @Autowired
     private RAGKnowledgeBaseService ragService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    /**
+     * 校验当前会话用户是否为管理员。用于数据库自省、组件分析等敏感调试接口，
+     * 防止未授权用户拖库或读取任意文件。
+     */
+    private void checkAdminPermission(HttpServletRequest request) {
+        // JWT 已带 ADMIN 角色，直接放行
+        if (SecurityUtils.isJwtAdmin()) {
+            return;
+        }
+        String userId = SecurityUtils.getCurrentUserId(request);
+        if (userId == null || userId.isEmpty()) {
+            throw new RuntimeException("用户未登录，请先登录");
+        }
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+        String role = user.getRole();
+        String userRole = user.getUserRole();
+        boolean isAdmin = "ADMIN".equals(role) || "admin".equals(userRole) || "ADMIN".equals(userRole);
+        if (!isAdmin) {
+            throw new RuntimeException("无权限访问，仅限管理员操作");
+        }
+    }
 
     @GetMapping("/project/structure")
     public ResponseEntity<Map<String, Object>> getProjectStructure() {
@@ -59,9 +94,10 @@ public class AgentController {
     }
 
     @PostMapping("/component/analyze")
-    public ResponseEntity<Map<String, Object>> analyzeComponent(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, Object>> analyzeComponent(@RequestBody Map<String, String> body, HttpServletRequest request) {
         try {
-            String path = request.get("path");
+            checkAdminPermission(request);
+            String path = body.get("path");
             Map<String, Object> analysis = agentService.analyzeComponent(path);
             return ResponseEntity.ok(analysis);
         } catch (Exception e) {
@@ -70,8 +106,9 @@ public class AgentController {
     }
 
     @GetMapping("/database/schema")
-    public ResponseEntity<Map<String, Object>> getDatabaseSchema() {
+    public ResponseEntity<Map<String, Object>> getDatabaseSchema(HttpServletRequest request) {
         try {
+            checkAdminPermission(request);
             Map<String, Object> schema = databaseService.getDatabaseSchema();
             return ResponseEntity.ok(schema);
         } catch (Exception e) {
@@ -80,8 +117,9 @@ public class AgentController {
     }
 
     @GetMapping("/database/collections")
-    public ResponseEntity<Map<String, Object>> getCollections() {
+    public ResponseEntity<Map<String, Object>> getCollections(HttpServletRequest request) {
         try {
+            checkAdminPermission(request);
             Map<String, Object> collections = databaseService.getCollections();
             return ResponseEntity.ok(collections);
         } catch (Exception e) {
@@ -90,9 +128,10 @@ public class AgentController {
     }
 
     @PostMapping("/database/query")
-    public ResponseEntity<Map<String, Object>> queryDatabase(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, Object>> queryDatabase(@RequestBody Map<String, String> body, HttpServletRequest request) {
         try {
-            String query = request.get("query");
+            checkAdminPermission(request);
+            String query = body.get("query");
             Map<String, Object> result = databaseService.executeQuery(query);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -124,10 +163,11 @@ public class AgentController {
                 result.put("data", "好的，已为您跳转到对应的页面");
                 result.put("action", "navigate");
                 result.put("page", pageToNavigate);
+                result.put("citations", Collections.emptyList());
             } else {
-                // 检查是否是学习相关内容，使用RAG知识库
-                String response = enhancedChatWithRAG(prompt);
-                result.put("data", response);
+                Map<String, Object> ragResult = enhancedChatWithRAG(prompt);
+                result.put("data", ragResult.get("answer"));
+                result.put("citations", ragResult.getOrDefault("citations", Collections.emptyList()));
             }
             
             return ResponseEntity.ok(result);
@@ -137,34 +177,43 @@ public class AgentController {
     }
 
     /**
-     * 使用RAG知识库增强的聊天
+     * 使用RAG知识库增强的聊天——返回结构化结果含引用
      */
-    private String enhancedChatWithRAG(String prompt) {
+    private Map<String, Object> enhancedChatWithRAG(String prompt) {
         try {
-            // 检测是否与学习内容相关
             String lowerPrompt = prompt.toLowerCase();
             
             if (containsAny(lowerPrompt, "学习", "课程", "知识点", "章节", "内容", "讲解", "解释", "什么是", "如何", "为什么", "怎么做")) {
-                // 使用RAG知识库检索相关内容
-                String ragResponse = ragService.enhancedQA(
+                Map<String, Object> ragResult = ragService.enhancedQA(
                     prompt, 
                     "抱歉，我没有找到相关的学习资料来回答您的问题。"
                 );
                 
-                if (ragResponse != null && !ragResponse.isEmpty() && !ragResponse.contains("抱歉")) {
-                    return ragResponse;
+                String answer = (String) ragResult.get("answer");
+                if (answer != null && !answer.isEmpty() && !answer.contains("抱歉")) {
+                    return ragResult;
                 }
             }
             
-            // 默认使用GLM API
-            return glmApiService.chat(prompt);
+            String fallback = glmApiService.chat(prompt);
+            Map<String, Object> result = new HashMap<>();
+            result.put("answer", fallback);
+            result.put("citations", Collections.emptyList());
+            return result;
             
         } catch (Exception e) {
-            System.err.println("RAG增强聊天失败: " + e.getMessage());
+            log.warn("RAG增强聊天失败: " + e.getMessage());
             try {
-                return glmApiService.chat(prompt);
+                String fallback = glmApiService.chat(prompt);
+                Map<String, Object> result = new HashMap<>();
+                result.put("answer", fallback);
+                result.put("citations", Collections.emptyList());
+                return result;
             } catch (Exception ex) {
-                return "抱歉，服务暂时不可用，请稍后再试。";
+                Map<String, Object> result = new HashMap<>();
+                result.put("answer", "抱歉，服务暂时不可用，请稍后再试。");
+                result.put("citations", Collections.emptyList());
+                return result;
             }
         }
     }
@@ -183,48 +232,67 @@ public class AgentController {
     }
 
     /**
+     * 重建BM25倒排索引（管理后台触发）
+     */
+    @PostMapping("/knowledge/rebuild-bm25")
+    public ResponseEntity<Map<String, Object>> rebuildBM25() {
+        try {
+            Map<String, Object> stats = ragService.rebuildBM25Index();
+            return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 重试处理 PENDING 状态的chunk
+     */
+    @PostMapping("/knowledge/retry-pending")
+    public ResponseEntity<Map<String, Object>> retryPendingChunks(@RequestBody Map<String, String> request) {
+        try {
+            String materialId = request.get("materialId");
+            int success = ragService.retryPendingChunks(materialId);
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", success);
+            result.put("message", "成功处理 " + success + " 个chunk");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * 基于知识库生成学习内容
      */
     @GetMapping("/learning/generate/{chapter}")
     public ResponseEntity<Map<String, Object>> generateLearningContent(@PathVariable Integer chapter) {
         try {
             Map<String, Object> result = new HashMap<>();
-            
-            // 使用RAG检索相关资料
-            String query = "第" + chapter + "章的学习内容，包括概述、知识点、重点难点";
-            var relevantChunks = ragService.retrieveRelevantChunks(query, 5);
-            
-            if (relevantChunks.isEmpty()) {
+
+            // 复用按章全量召回的生成逻辑：
+            // 原先此处用 top-5 语义检索，整章内容大部分拿不到，模型会误判"资料里没有这一章"。
+            Map<String, Object> generated = ragService.generateChapterStudyContent(chapter);
+
+            if (generated.get("materialCount") instanceof Integer count && count == 0) {
                 result.put("success", false);
                 result.put("message", "该章节暂无相关资料");
                 return ResponseEntity.ok(result);
             }
-            
-            // 构建上下文
-            StringBuilder context = new StringBuilder();
-            context.append("基于以下资料，生成第").append(chapter).append("章的完整学习内容：\n\n");
-            
-            for (var chunk : relevantChunks) {
-                context.append("- ").append(chunk.getContent()).append("\n\n");
+
+            String content = generated.get("answer") == null ? "" : generated.get("answer").toString();
+            if (content.isBlank()) {
+                result.put("success", false);
+                result.put("message", "生成失败，请稍后重试");
+                return ResponseEntity.ok(result);
             }
-            
-            context.append("请生成包含以下部分的Markdown格式学习内容：\n");
-            context.append("## 章节概述\n");
-            context.append("## 核心知识点\n");
-            context.append("## 重点难点\n");
-            context.append("## 学习建议\n");
-            context.append("## 相关习题\n");
-            
-            // 调用GLM API生成内容
-            String generatedContent = glmApiService.callGlmApi(context.toString());
-            
+
             result.put("success", true);
             result.put("chapter", chapter);
-            result.put("content", generatedContent);
-            result.put("sources", relevantChunks.size());
-            
+            result.put("content", content);
+            result.put("sources", generated.get("chunkCount"));
+
             return ResponseEntity.ok(result);
-            
+
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
